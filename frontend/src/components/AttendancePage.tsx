@@ -1,40 +1,91 @@
+/*
+ * AttendancePage Component - Handles two modes:
+ * 
+ * 1. Manual Mode (eventId prop): 
+ *    - Shows all attendees for the selected event
+ *    - Includes search functionality
+ *    - Used when staff selects event from EventSelector
+ * 
+ * 2. QR Mode (qrData prop):
+ *    - Shows only attendees for the scanned group
+ *    - QR data format: {"group_id": "uuid", "event_id": "uuid"}
+ *    - No search needed (specific group already filtered)
+ *    - Used when staff scans QR code from QRScanner
+ */
+
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { ArrowLeft, Users, Check, X, Search, Loader2 } from 'lucide-react';
-import { getEvent, getEventAttendees, markAttendance, toggleAttendeeAttendance, AttendeeWithGroup } from '../lib/api';
+import { ArrowLeft, Users, Check, X, Search, Loader2, QrCode } from 'lucide-react';
+import { getEvent, getEventAttendees, getGroupAttendees, markAttendance, toggleAttendeeAttendance, AttendeeWithGroup } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface AttendancePageProps {
-  eventId: string;
+  eventId?: string;
+  qrData?: string; // JSON string with group_id and event_id
   onBack: () => void;
 }
 
-export function AttendancePage({ eventId, onBack }: AttendancePageProps) {
+interface QRCodeData {
+  group_id: string;
+  event_id: string;
+}
+
+export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps) {
   const [attendees, setAttendees] = useState<AttendeeWithGroup[]>([]);
   const [eventName, setEventName] = useState('');
   const [eventLocation, setEventLocation] = useState('');
+  const [groupContactName, setGroupContactName] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isQRMode, setIsQRMode] = useState(false);
+  const [parsedQRData, setParsedQRData] = useState<QRCodeData | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
     loadEventData();
-  }, [eventId]);
+  }, [eventId, qrData]);
 
   const loadEventData = async () => {
     try {
       setLoading(true);
       setError(null);
       
+      let actualEventId = eventId;
+      let actualGroupId: string | null = null;
+      
+      // Check if we're in QR mode
+      if (qrData) {
+        try {
+          const qrCodeData: QRCodeData = JSON.parse(qrData);
+          setParsedQRData(qrCodeData);
+          setIsQRMode(true);
+          
+          if (!qrCodeData.group_id || !qrCodeData.event_id) {
+            throw new Error('Invalid QR code: missing group_id or event_id');
+          }
+          
+          actualEventId = qrCodeData.event_id;
+          actualGroupId = qrCodeData.group_id;
+        } catch (parseErr) {
+          throw new Error('Invalid QR code format');
+        }
+      } else {
+        setIsQRMode(false);
+      }
+      
+      if (!actualEventId) {
+        throw new Error('No event ID provided');
+      }
+      
       // Load event details
-      const event = await getEvent(eventId);
+      const event = await getEvent(actualEventId);
       if (event) {
         setEventName(event.name);
         setEventLocation(event.location || '');
@@ -42,12 +93,22 @@ export function AttendancePage({ eventId, onBack }: AttendancePageProps) {
         throw new Error('Event not found');
       }
       
-      // Load attendees
-      const eventAttendees = await getEventAttendees(eventId);
+      // Load attendees - either for specific group or entire event
+      let eventAttendees: AttendeeWithGroup[];
+      if (actualGroupId) {
+        eventAttendees = await getGroupAttendees(actualEventId, actualGroupId);
+        if (eventAttendees.length === 0) {
+          throw new Error('No attendees found for this group');
+        }
+        setGroupContactName(eventAttendees[0]?.groups?.name || 'Unknown Group');
+      } else {
+        eventAttendees = await getEventAttendees(actualEventId);
+      }
+      
       setAttendees(eventAttendees);
     } catch (err) {
       console.error('Error loading event data:', err);
-      setError('Failed to load event data. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to load event data. Please try again.');
       toast.error('Failed to load event data');
     } finally {
       setLoading(false);
@@ -145,8 +206,8 @@ export function AttendancePage({ eventId, onBack }: AttendancePageProps) {
     toast.success('All changes have been saved!');
   };
 
-  // Filter attendees based on search term
-  const filteredAttendees = attendees.filter(attendee => 
+  // Filter attendees based on search term (only in manual mode)
+  const filteredAttendees = isQRMode ? attendees : attendees.filter(attendee => 
     attendee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     attendee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (attendee.groups?.name && attendee.groups.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -203,12 +264,24 @@ export function AttendancePage({ eventId, onBack }: AttendancePageProps) {
             </Button>
             <div className="flex-1">
               <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                {eventName}
+                {isQRMode ? (
+                  <>
+                    <QrCode className="w-5 h-5" />
+                    Group Check-In
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-5 h-5" />
+                    {eventName}
+                  </>
+                )}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {eventLocation && `${eventLocation} • `}
-                Mark attendance for event participants
+                {isQRMode ? (
+                  `${eventName}${groupContactName ? ` • Group: ${groupContactName}` : ''}`
+                ) : (
+                  `${eventLocation && `${eventLocation} • `}Mark attendance for event participants`
+                )}
               </p>
             </div>
           </div>
@@ -250,20 +323,22 @@ export function AttendancePage({ eventId, onBack }: AttendancePageProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
-            <CardTitle>Attendance List</CardTitle>
-            <div className="flex-1 max-w-sm">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search participants..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
+            <CardTitle>{isQRMode ? 'Group Attendees' : 'Attendance List'}</CardTitle>
+            {!isQRMode && (
+              <div className="flex-1 max-w-sm">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search participants..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
-          {searchTerm && (
+          {searchTerm && !isQRMode && (
             <div className="flex items-center gap-2">
               <Badge variant="outline">
                 {filteredPresentCount} of {filteredAttendees.length} present (filtered)

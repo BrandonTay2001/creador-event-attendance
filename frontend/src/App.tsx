@@ -21,6 +21,7 @@ function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [currentState, setCurrentState] = useState<AppState>('home');
   const [currentEventId, setCurrentEventId] = useState<string>('');
+  const [qrData, setQrData] = useState<string>('');
 
   const handleLogin = (userData: User) => {
     setUser(userData);
@@ -35,19 +36,22 @@ function AppContent() {
 
   const handleQRScanSuccess = (result: string) => {
     console.log('QR Code scanned:', result);
-    setCurrentEventId(result);
+    setQrData(result);
+    setCurrentEventId(''); // Clear eventId since we're using QR data
     setCurrentState('attendance');
   };
 
   const handleEventSelect = (eventId: string) => {
     console.log('Event selected:', eventId);
     setCurrentEventId(eventId);
+    setQrData(''); // Clear QR data since we're using manual selection
     setCurrentState('attendance');
   };
 
   const handleBackToHome = () => {
     setCurrentState('home');
     setCurrentEventId('');
+    setQrData('');
   };
 
   const handleGoToAdmin = () => {
@@ -111,7 +115,8 @@ function AppContent() {
 
               {currentState === 'attendance' && (
                 <AttendancePage 
-                  eventId={currentEventId} 
+                  eventId={currentEventId || undefined} 
+                  qrData={qrData || undefined}
                   onBack={handleBackToHome}
                 />
               )}

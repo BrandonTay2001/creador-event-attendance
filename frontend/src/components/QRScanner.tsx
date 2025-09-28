@@ -1,22 +1,46 @@
 import { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Camera, Upload } from 'lucide-react';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Camera, Type, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface QRScannerProps {
-  onScanSuccess: (result: string) => void;
+  onScanSuccess: (qrData: string) => void;
 }
 
 export function QRScanner({ onScanSuccess }: QRScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualInput, setManualInput] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const startScanning = async () => {
-    setError(null);
-    // Simulate successful camera access
-    setIsScanning(true);
+    try {
+      setError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Use back camera on mobile
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
+      });
+      
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setIsScanning(true);
+      toast.info('Camera started. Position QR code within the frame.');
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setError('Could not access camera. Please check permissions or use manual input.');
+      toast.error('Camera access denied');
+    }
   };
 
   const stopScanning = () => {
@@ -24,20 +48,29 @@ export function QRScanner({ onScanSuccess }: QRScannerProps) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setIsScanning(false);
   };
 
-  // Simulate QR code detection (in a real app, you'd use a QR detection library)
-  const simulateQRDetection = () => {
-    // Mock QR codes for different events
-    const mockQRCodes = [
-      'event:team-meeting-2024',
-      'event:company-retreat-2024',
-      'event:training-session-2024'
-    ];
-    const randomCode = mockQRCodes[Math.floor(Math.random() * mockQRCodes.length)];
-    onScanSuccess(randomCode);
-    stopScanning();
+  const handleManualSubmit = () => {
+    if (manualInput.trim()) {
+      try {
+        // Validate JSON format
+        const qrData = JSON.parse(manualInput.trim());
+        if (qrData.group_id && qrData.event_id) {
+          onScanSuccess(manualInput.trim());
+          setManualInput('');
+          setShowManualInput(false);
+          toast.success('QR code data processed successfully!');
+        } else {
+          toast.error('Invalid QR code format. Must contain group_id and event_id.');
+        }
+      } catch (err) {
+        toast.error('Invalid JSON format. Please check your input.');
+      }
+    }
   };
 
   return (
@@ -49,7 +82,7 @@ export function QRScanner({ onScanSuccess }: QRScannerProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!isScanning ? (
+        {!isScanning && !showManualInput ? (
           <div className="space-y-4">
             <Button onClick={startScanning} className="w-full">
               <Camera className="w-4 h-4 mr-2" />
@@ -65,25 +98,25 @@ export function QRScanner({ onScanSuccess }: QRScannerProps) {
               </div>
             </div>
             
-            <Button onClick={simulateQRDetection} className="w-full" variant="secondary">
-              <Upload className="w-4 h-4 mr-2" />
-              Demo Mode - Simulate QR Code
+            <Button onClick={() => setShowManualInput(true)} className="w-full" variant="secondary">
+              <Type className="w-4 h-4 mr-2" />
+              Manual Input
             </Button>
             
             <p className="text-xs text-muted-foreground text-center">
-              Demo mode works without camera permissions
+              Scan QR code or enter data manually
             </p>
           </div>
-        ) : (
+        ) : isScanning ? (
           <div className="space-y-4">
             <div className="relative aspect-square bg-black rounded-lg overflow-hidden">
-              {/* Simulated camera feed with animated scanning effect */}
-              <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-                <div className="text-white/30 text-center">
-                  <Camera className="w-12 h-12 mx-auto mb-2" />
-                  <p className="text-sm">Camera Active</p>
-                </div>
-              </div>
+              <video 
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                autoPlay 
+                playsInline 
+                muted
+              />
               
               {/* Scanning frame with corners */}
               <div className="absolute inset-4 border-2 border-white rounded-lg">
@@ -99,29 +132,54 @@ export function QRScanner({ onScanSuccess }: QRScannerProps) {
               </div>
             </div>
             
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={stopScanning} className="flex-1">
-                Stop Scanning
-              </Button>
-              <Button onClick={simulateQRDetection} className="flex-1">
-                Test Scan
-              </Button>
-            </div>
+            <Button variant="outline" onClick={stopScanning} className="w-full">
+              Stop Scanning
+            </Button>
             
             <p className="text-sm text-center text-muted-foreground">
               Position the QR code within the frame
             </p>
           </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="qr-input">QR Code Data (JSON)</Label>
+              <Input
+                id="qr-input"
+                placeholder='{"group_id": "uuid", "event_id": "uuid"}'
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowManualInput(false)} className="flex-1">
+                Back
+              </Button>
+              <Button onClick={handleManualSubmit} disabled={!manualInput.trim()} className="flex-1">
+                Submit
+              </Button>
+            </div>
+            
+            <div className="p-3 bg-muted/50 rounded-md">
+              <p className="text-xs text-muted-foreground">
+                <strong>Expected format:</strong><br/>
+                {'{"group_id": "your-group-uuid", "event_id": "your-event-uuid"}'}
+              </p>
+            </div>
+          </div>
         )}
         
         {error && (
           <div className="space-y-3">
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
               <p className="text-sm text-destructive">{error}</p>
             </div>
-            <Button onClick={simulateQRDetection} className="w-full" variant="default">
-              <Upload className="w-4 h-4 mr-2" />
-              Continue with Demo Mode
+            <Button onClick={() => setShowManualInput(true)} className="w-full" variant="default">
+              <Type className="w-4 h-4 mr-2" />
+              Use Manual Input
             </Button>
           </div>
         )}
