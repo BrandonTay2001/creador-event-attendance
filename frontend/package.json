@@ -32,6 +32,7 @@
             "@supabase/auth-ui-react": "^0.4.7",
             "@supabase/auth-ui-shared": "^0.1.8",
             "@supabase/supabase-js": "^2.58.0",
+            "@yudiel/react-qr-scanner": "^2.3.1",
             "class-variance-authority": "^0.7.1",
             "clsx": "*",
             "cmdk": "^1.1.1",
