@@ -74,16 +74,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
   };
 
-  const handleDemoLogin = (type: 'user' | 'admin') => {
-    setIsLoading(true);
-    setTimeout(() => {
-      onLogin({
-        username: type === 'admin' ? 'Admin User' : 'Regular User',
-        isAdmin: type === 'admin'
-      });
-      setIsLoading(false);
-    }, 500);
-  };
+  
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -157,39 +148,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             Sign in with Microsoft
           </Button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Demo Access</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => handleDemoLogin('user')}
-              disabled={isLoading}
-              className="w-full"
-            >
-              Demo User
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => handleDemoLogin('admin')}
-              disabled={isLoading}
-              className="w-full"
-            >
-              Demo Admin
-            </Button>
-          </div>
-
-          <div className="text-xs text-muted-foreground text-center space-y-1">
-            <p><strong>Demo credentials:</strong></p>
-            <p>Email: admin@example.com</p>
-            <p>Password: Admin2025!</p>
-          </div>
+          
         </CardContent>
       </Card>
     </div>
