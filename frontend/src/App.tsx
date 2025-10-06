@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QRScanner } from './components/QRScanner';
 import { AttendancePage } from './components/AttendancePage';
 import { EventSelector } from './components/EventSelector';
@@ -8,7 +8,7 @@ import { LoginPage } from './components/LoginPage';
 import { AppSidebar } from './components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from './components/ui/sidebar';
 import { Toaster } from './components/ui/sonner';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 type AppState = 'home' | 'attendance' | 'admin' | 'event-management';
 
@@ -18,20 +18,44 @@ interface User {
 }
 
 function AppContent() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, loading, signOut, getUserRole } = useAuth();
+  const [appUser, setAppUser] = useState<User | null>(null);
   const [currentState, setCurrentState] = useState<AppState>('home');
   const [currentEventId, setCurrentEventId] = useState<string>('');
   const [qrData, setQrData] = useState<string>('');
 
+  useEffect(() => {
+    const handleUserAuth = async () => {
+      if (user) {
+        // Get user role and set up app user
+        const role = await getUserRole();
+        const isAdmin = role === 'admin';
+        
+        setAppUser({
+          username: user.email || 'User',
+          isAdmin
+        });
+      } else {
+        setAppUser(null);
+      }
+    };
+
+    if (!loading) {
+      handleUserAuth();
+    }
+  }, [user, loading, getUserRole]);
+
   const handleLogin = (userData: User) => {
-    setUser(userData);
+    setAppUser(userData);
     setCurrentState('home');
   };
 
-  const handleLogout = () => {
-    setUser(null);
+  const handleLogout = async () => {
+    await signOut();
+    setAppUser(null);
     setCurrentState('home');
     setCurrentEventId('');
+    setQrData('');
   };
 
   const handleQRScanSuccess = (result: string) => {
@@ -68,8 +92,20 @@ function AppContent() {
     setCurrentEventId('');
   };
 
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show login page if not authenticated
-  if (!user) {
+  if (!appUser) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
@@ -77,7 +113,7 @@ function AppContent() {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar 
-          user={user}
+          user={appUser}
           onAdminClick={handleGoToAdmin}
           onLogout={handleLogout}
         />
@@ -121,14 +157,14 @@ function AppContent() {
                 />
               )}
 
-              {currentState === 'admin' && user.isAdmin && (
+              {currentState === 'admin' && appUser.isAdmin && (
                 <AdminDashboard 
                   onBack={handleBackToHome}
                   onEventClick={handleEventManagement}
                 />
               )}
 
-              {currentState === 'event-management' && user.isAdmin && (
+              {currentState === 'event-management' && appUser.isAdmin && (
                 <EventManagement 
                   eventId={currentEventId}
                   onBack={handleBackToAdmin}
@@ -136,7 +172,7 @@ function AppContent() {
               )}
 
               {/* Fallback for non-admin users trying to access admin pages */}
-              {(currentState === 'admin' || currentState === 'event-management') && !user.isAdmin && (
+              {(currentState === 'admin' || currentState === 'event-management') && !appUser.isAdmin && (
                 <div className="text-center py-12">
                   <h2 className="text-lg mb-2">Access Denied</h2>
                   <p className="text-muted-foreground mb-4">

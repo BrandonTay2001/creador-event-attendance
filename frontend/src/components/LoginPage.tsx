@@ -17,7 +17,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, getUserRole } = useAuth();
+  const { signIn, signInWithMicrosoft, getUserRole } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +53,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (error) setError('');
+  };
+
+  const handleMicrosoftSignIn = async () => {
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const { error: authError } = await signInWithMicrosoft();
+      
+      if (authError) {
+        setError(authError.message);
+      }
+      // Note: OAuth redirects, so we won't handle success here
+      // The auth state change will be handled by the AuthContext
+    } catch (err) {
+      setError('Microsoft sign-in failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDemoLogin = (type: 'user' | 'admin') => {
@@ -119,6 +138,24 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleMicrosoftSignIn}
+            disabled={isLoading}
+            variant="outline"
+            className="w-full"
+          >
+            Sign in with Microsoft
+          </Button>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
