@@ -10,6 +10,8 @@ import { AddGuestDialog } from './AddGuestDialog';
 import { EditGuestDialog } from './EditGuestDialog';
 import { EditEventDialog } from './EditEventDialog';
 import { BulkImportDialog } from './BulkImportDialog';
+import { EmailSection } from './EmailSection';
+import { Checkbox } from './ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { toast } from 'sonner@2.0.3';
 
@@ -27,6 +29,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
   const [editingGuest, setEditingGuest] = useState<Person | null>(null);
   const [showEditEventDialog, setShowEditEventDialog] = useState(false);
   const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
+  const [selectedAttendees, setSelectedAttendees] = useState<Set<string>>(new Set());
 
   const loadEvent = async () => {
     setLoading(true);
@@ -97,6 +100,35 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
       await loadEvent();
       toast.success(`Successfully imported ${successCount} attendees`);
     }
+  };
+
+  const handleAttendeeSelection = (attendeeId: string, checked: boolean) => {
+    const newSelected = new Set(selectedAttendees);
+    if (checked) {
+      newSelected.add(attendeeId);
+    } else {
+      newSelected.delete(attendeeId);
+    }
+    setSelectedAttendees(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(filteredGuests.map(g => g.id));
+      setSelectedAttendees(allIds);
+    } else {
+      setSelectedAttendees(new Set());
+    }
+  };
+
+  const handleEmailSend = (subject: string, content: string, recipients: Person[]) => {
+    // For now, just show a success message
+    toast.success(`Email prepared for ${recipients.length} attendee(s): "${subject}"`);
+    console.log('Email details:', { subject, content, recipients });
+  };
+
+  const getSelectedAttendeeObjects = (): Person[] => {
+    return guests.filter(guest => selectedAttendees.has(guest.id));
   };
 
   const downloadCSV = () => {
@@ -242,7 +274,13 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
-            <CardTitle>Guest List</CardTitle>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={filteredGuests.length > 0 && filteredGuests.every(g => selectedAttendees.has(g.id))}
+                onCheckedChange={handleSelectAll}
+              />
+              <CardTitle>Guest List ({selectedAttendees.size} selected)</CardTitle>
+            </div>
             <div className="flex-1 max-w-sm">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -283,8 +321,14 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
                   key={guest.id}
                   className={`flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors ${
                     index !== filteredGuests.length - 1 ? 'border-b' : ''
+                  } ${
+                    selectedAttendees.has(guest.id) ? 'bg-primary/5' : ''
                   }`}
                 >
+                  <Checkbox
+                    checked={selectedAttendees.has(guest.id)}
+                    onCheckedChange={(checked) => handleAttendeeSelection(guest.id, !!checked)}
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p>{guest.name}</p>
@@ -377,6 +421,11 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
         open={showBulkImportDialog}
         onOpenChange={setShowBulkImportDialog}
         onGuestsImported={handleBulkImport}
+      />
+      
+      <EmailSection 
+        selectedAttendees={getSelectedAttendeeObjects()}
+        onEmailSend={handleEmailSend}
       />
     </div>
   );
