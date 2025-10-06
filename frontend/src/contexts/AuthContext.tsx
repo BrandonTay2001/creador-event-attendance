@@ -126,14 +126,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single()
-      
+        .maybeSingle()
+
       if (error) {
         console.error('Error fetching user role:', error)
-        return 'staff' // Default to staff if role not found
       }
-      
-      return data?.role ?? 'staff'
+
+      // If the role exists, return it
+      if (data?.role) {
+        return data.role
+      }
+
+      // If not found, insert a new user role as "user"
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: user.id, role: 'staff' })
+
+      if (insertError) {
+        console.error('Error inserting default user role:', insertError)
+      }
+
+      // Return the default role regardless of insert outcome
+      return 'staff'
     } catch (error) {
       console.error('Error in getUserRole:', error)
       return 'staff' // Default to staff on error
