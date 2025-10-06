@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from './ui/dropdown-menu';
-import { ArrowLeft, Plus, Trash2, Edit, Search, Users, Mail, Hash, Settings, Download, Upload, Send, MoreVertical } from 'lucide-react';
-import { mockEventData, addGuest, removeGuest, updateGuest, updateEvent, Person } from '../lib/eventData';
+import { ArrowLeft, Plus, Trash2, Edit, Search, Users, Mail, Hash, Settings, Download, Upload, Send, MoreVertical, Loader2 } from 'lucide-react';
+import { getEventList, addGuest, removeGuest, updateGuest, updateEvent, Person, Event } from '../lib/eventData';
 import { AddGuestDialog } from './AddGuestDialog';
 import { EditGuestDialog } from './EditGuestDialog';
 import { EditEventDialog } from './EditEventDialog';
@@ -19,84 +19,94 @@ interface EventManagementProps {
 }
 
 export function EventManagement({ eventId, onBack }: EventManagementProps) {
-  const [event, setEvent] = useState(mockEventData[eventId]);
+  const [event, setEvent] = useState<Event | null>(null);
   const [guests, setGuests] = useState<Person[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingGuest, setEditingGuest] = useState<Person | null>(null);
   const [showEditEventDialog, setShowEditEventDialog] = useState(false);
   const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
 
-  useEffect(() => {
-    if (event) {
-      setGuests(event.people);
+  const loadEvent = async () => {
+    setLoading(true);
+    try {
+      const events = await getEventList();
+      const foundEvent = events.find(e => e.id === eventId);
+      setEvent(foundEvent || null);
+      if (foundEvent) {
+        setGuests(foundEvent.people);
+      }
+    } catch (error) {
+      console.error('Error loading event:', error);
+      setEvent(null);
+    } finally {
+      setLoading(false);
     }
-  }, [event]);
+  };
+
+  useEffect(() => {
+    loadEvent();
+  }, [eventId]);
 
   const filteredGuests = guests.filter(guest => 
     guest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     guest.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    guest.groupId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (guest.role && guest.role.toLowerCase().includes(searchTerm.toLowerCase()))
+    (guest.groupName && guest.groupName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddGuest = (guestData: Omit<Person, 'id'>) => {
-    const newGuest = addGuest(eventId, guestData);
+  const handleAddGuest = async (guestData: { name: string; email: string; groupName: string; isPresent: boolean }) => {
+    const newGuest = await addGuest(eventId, guestData);
     if (newGuest) {
-      setEvent(mockEventData[eventId]);
-      setGuests(mockEventData[eventId].people);
+      await loadEvent();
       setShowAddDialog(false);
     }
   };
 
-  const handleEditGuest = (guestId: string, updates: Partial<Person>) => {
-    const updatedGuest = updateGuest(eventId, guestId, updates);
+  const handleEditGuest = async (guestId: string, updates: Partial<Person>) => {
+    const updatedGuest = await updateGuest(eventId, guestId, updates);
     if (updatedGuest) {
-      setEvent(mockEventData[eventId]);
-      setGuests(mockEventData[eventId].people);
+      await loadEvent();
       setEditingGuest(null);
     }
   };
 
-  const handleDeleteGuest = (guestId: string) => {
-    const success = removeGuest(eventId, guestId);
+  const handleDeleteGuest = async (guestId: string) => {
+    const success = await removeGuest(eventId, guestId);
     if (success) {
-      setEvent(mockEventData[eventId]);
-      setGuests(mockEventData[eventId].people);
+      await loadEvent();
     }
   };
 
-  const handleEditEvent = (eventId: string, updates: any) => {
-    const success = updateEvent(eventId, updates);
+  const handleEditEvent = async (eventId: string, updates: any) => {
+    const success = await updateEvent(eventId, updates);
     if (success) {
-      setEvent(mockEventData[eventId]);
+      await loadEvent();
       toast.success('Event updated successfully');
     }
   };
 
-  const handleBulkImport = (importedGuests: Omit<Person, 'id'>[]) => {
+  const handleBulkImport = async (importedGuests: { name: string; email: string; groupName: string; isPresent: boolean }[]) => {
     let successCount = 0;
-    importedGuests.forEach(guestData => {
-      const newGuest = addGuest(eventId, guestData);
+    for (const guestData of importedGuests) {
+      const newGuest = await addGuest(eventId, guestData);
       if (newGuest) successCount++;
-    });
+    }
     
     if (successCount > 0) {
-      setEvent(mockEventData[eventId]);
-      setGuests(mockEventData[eventId].people);
+      await loadEvent();
       toast.success(`Successfully imported ${successCount} attendees`);
     }
   };
 
   const downloadCSV = () => {
-    const headers = ['Name', 'Email', 'Group ID', 'Role', 'Attendance Status'];
+    const headers = ['Name', 'Email', 'Group Name', 'Attendance Status'];
     const csvData = [
       headers.join(','),
       ...guests.map(guest => [
         `"${guest.name}"`,
         `"${guest.email}"`,
-        `"${guest.groupId}"`,
-        `"${guest.role || ''}"`,
+        `"${guest.groupName || ''}"`,
         guest.isPresent ? 'Present' : 'Absent'
       ].join(','))
     ].join('\n');
@@ -116,6 +126,22 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     // Mock email sending functionality
     toast.success(`Invitation emails sent to ${guests.length} attendees`);
   };
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-2xl mx-auto">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
+            <h3 className="text-lg mb-2">Loading event...</h3>
+            <p className="text-muted-foreground text-center">
+              Please wait while we fetch the event details
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -271,18 +297,15 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
                         <Mail className="w-3 h-3" />
                         {guest.email}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Hash className="w-3 h-3" />
-                        {guest.groupId}
-                      </span>
+                      {guest.groupName && (
+                        <span className="flex items-center gap-1">
+                          <Hash className="w-3 h-3" />
+                          Group name: {guest.groupName}
+                        </span>
+                      )}
                     </div>
                   </div>
                   
-                  {guest.role && (
-                    <Badge variant="secondary" className="shrink-0">
-                      {guest.role}
-                    </Badge>
-                  )}
                   
                   <div className="flex items-center gap-2">
                     <Button 
@@ -326,6 +349,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
       </Card>
 
       <AddGuestDialog 
+        eventId={eventId}
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
         onGuestAdded={handleAddGuest}

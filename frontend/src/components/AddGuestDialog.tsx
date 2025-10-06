@@ -1,41 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Person } from '../lib/eventData';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Person, Group, getGroupsForEvent } from '../lib/eventData';
 
 interface AddGuestDialogProps {
+  eventId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGuestAdded: (guest: Omit<Person, 'id'>) => void;
+  onGuestAdded: (guestData: { name: string; email: string; groupName: string; isPresent: boolean }) => void;
 }
 
-export function AddGuestDialog({ open, onOpenChange, onGuestAdded }: AddGuestDialogProps) {
+export function AddGuestDialog({ eventId, open, onOpenChange, onGuestAdded }: AddGuestDialogProps) {
   const [formData, setFormData] = useState({
-    groupId: '',
+    groupName: '',
     name: '',
-    email: '',
-    role: ''
+    email: ''
   });
+  const [groups, setGroups] = useState<Group[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      loadGroups();
+    }
+  }, [open, eventId]);
+
+  const loadGroups = async () => {
+    setLoadingGroups(true);
+    try {
+      const eventGroups = await getGroupsForEvent(eventId);
+      setGroups(eventGroups);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API call
-      
       onGuestAdded({
-        groupId: formData.groupId,
         name: formData.name,
         email: formData.email,
-        role: formData.role || undefined,
+        groupName: formData.groupName,
         isPresent: false
       });
 
-      setFormData({ groupId: '', name: '', email: '', role: '' });
+      setFormData({ groupName: '', name: '', email: '' });
     } finally {
       setIsSubmitting(false);
     }
@@ -54,14 +72,26 @@ export function AddGuestDialog({ open, onOpenChange, onGuestAdded }: AddGuestDia
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="groupId">Group ID</Label>
-            <Input
-              id="groupId"
-              value={formData.groupId}
-              onChange={(e) => handleChange('groupId', e.target.value)}
-              placeholder="e.g., GRP001"
-              required
-            />
+            <Label htmlFor="groupName">Group</Label>
+            <Select
+              value={formData.groupName}
+              onValueChange={(value) => handleChange('groupName', value)}
+              disabled={loadingGroups}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingGroups ? "Loading groups..." : "Select a group"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CREATE_NEW_GROUP">
+                  <span className="font-medium text-green-600">+ Create New Group</span>
+                </SelectItem>
+                {groups.map((group) => (
+                  <SelectItem key={group.id} value={group.name}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -87,15 +117,6 @@ export function AddGuestDialog({ open, onOpenChange, onGuestAdded }: AddGuestDia
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="role">Role (Optional)</Label>
-            <Input
-              id="role"
-              value={formData.role}
-              onChange={(e) => handleChange('role', e.target.value)}
-              placeholder="e.g., Manager, Developer"
-            />
-          </div>
 
           <div className="flex gap-2 pt-4">
             <Button 
@@ -108,7 +129,7 @@ export function AddGuestDialog({ open, onOpenChange, onGuestAdded }: AddGuestDia
             </Button>
             <Button 
               type="submit" 
-              disabled={!formData.name.trim() || !formData.email.trim() || !formData.groupId.trim() || isSubmitting}
+              disabled={!formData.name.trim() || !formData.email.trim() || !formData.groupName.trim() || isSubmitting}
               className="flex-1"
             >
               {isSubmitting ? 'Adding...' : 'Add Guest'}

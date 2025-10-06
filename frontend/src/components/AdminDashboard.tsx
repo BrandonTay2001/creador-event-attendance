@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { ArrowLeft, Plus, Settings, Calendar, Users, Trash2, Edit } from 'lucide-react';
-import { getEventList, deleteEvent } from '../lib/eventData';
+import { ArrowLeft, Plus, Settings, Calendar, Users, Trash2, Edit, Loader2 } from 'lucide-react';
+import { getEventList, deleteEvent, Event } from '../lib/eventData';
 import { CreateEventDialog } from './CreateEventDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 
@@ -13,18 +13,35 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ onBack, onEventClick }: AdminDashboardProps) {
-  const [events, setEvents] = useState(getEventList());
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const handleDeleteEvent = (eventId: string) => {
-    const success = deleteEvent(eventId);
-    if (success) {
-      setEvents(getEventList());
+  const loadEvents = async () => {
+    setLoading(true);
+    try {
+      const eventList = await getEventList();
+      setEvents(eventList);
+    } catch (error) {
+      console.error('Error loading events:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleEventCreated = () => {
-    setEvents(getEventList());
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const handleDeleteEvent = async (eventId: string) => {
+    const success = await deleteEvent(eventId);
+    if (success) {
+      await loadEvents();
+    }
+  };
+
+  const handleEventCreated = async () => {
+    await loadEvents();
     setShowCreateDialog(false);
   };
 
@@ -63,7 +80,17 @@ export function AdminDashboard({ onBack, onEventClick }: AdminDashboardProps) {
       </Card>
 
       <div className="grid gap-4">
-        {events.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
+              <h3 className="text-lg mb-2">Loading events...</h3>
+              <p className="text-muted-foreground text-center">
+                Please wait while we fetch your events
+              </p>
+            </CardContent>
+          </Card>
+        ) : events.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Calendar className="w-12 h-12 text-muted-foreground mb-4" />

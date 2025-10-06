@@ -25,17 +25,23 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
     setIsSubmitting(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-      
-      createEvent({
+      const newEvent = await createEvent({
         name: formData.name,
         description: formData.description || undefined,
         date: formData.date || undefined,
         people: []
       });
 
-      setFormData({ name: '', description: '', date: '' });
-      onEventCreated();
+      if (newEvent) {
+        setFormData({ name: '', description: '', date: '' });
+        onEventCreated();
+      } else {
+        console.error('Failed to create event');
+        // You could add toast notification here for better UX
+      }
+    } catch (error) {
+      console.error('Error creating event:', error);
+      // You could add toast notification here for better UX
     } finally {
       setIsSubmitting(false);
     }
