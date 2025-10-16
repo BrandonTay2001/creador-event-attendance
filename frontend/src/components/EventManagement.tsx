@@ -441,6 +441,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
       {editingGuest && (
         <EditGuestDialog 
           guest={editingGuest}
+          eventId={eventId}
           open={!!editingGuest}
           onOpenChange={(open) => !open && setEditingGuest(null)}
           onGuestUpdated={handleEditGuest}
