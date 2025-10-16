@@ -268,7 +268,7 @@ export async function findOrCreateGroup(eventId: string, groupName: string, cont
 
 export async function bulkImportAttendees(
   eventId: string, 
-  attendeesData: { name: string; email: string; groupName: string; role?: string }[]
+  attendeesData: { name: string; email: string; groupName: string }[]
 ): Promise<{ successCount: number; errors: string[] }> {
   const errors: string[] = []
   let successCount = 0
@@ -301,7 +301,6 @@ export async function bulkImportAttendees(
           name: attendee.name,
           email: attendee.email,
           is_attending: false
-          // Note: role is not stored in database yet - would need schema update
         }))
 
         const { error: insertError } = await supabase

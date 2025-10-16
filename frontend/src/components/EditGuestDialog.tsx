@@ -16,8 +16,7 @@ export function EditGuestDialog({ guest, open, onOpenChange, onGuestUpdated }: E
   const [formData, setFormData] = useState({
     groupId: '',
     name: '',
-    email: '',
-    role: ''
+    email: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -26,8 +25,7 @@ export function EditGuestDialog({ guest, open, onOpenChange, onGuestUpdated }: E
       setFormData({
         groupId: guest.groupId,
         name: guest.name,
-        email: guest.email,
-        role: guest.role || ''
+        email: guest.email
       });
     }
   }, [guest]);
@@ -42,8 +40,7 @@ export function EditGuestDialog({ guest, open, onOpenChange, onGuestUpdated }: E
       onGuestUpdated(guest.id, {
         groupId: formData.groupId,
         name: formData.name,
-        email: formData.email,
-        role: formData.role || undefined
+        email: formData.email
       });
     } finally {
       setIsSubmitting(false);
@@ -93,16 +90,6 @@ export function EditGuestDialog({ guest, open, onOpenChange, onGuestUpdated }: E
               onChange={(e) => handleChange('email', e.target.value)}
               placeholder="Enter email address"
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="role">Role (Optional)</Label>
-            <Input
-              id="role"
-              value={formData.role}
-              onChange={(e) => handleChange('role', e.target.value)}
-              placeholder="e.g., Manager, Developer"
             />
           </div>
 

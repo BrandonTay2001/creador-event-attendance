@@ -16,7 +16,7 @@ interface BulkImportDialogProps {
 
 export function BulkImportDialog({ open, onOpenChange, onGuestsImported, eventId }: BulkImportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [parsedData, setParsedData] = useState<{ name: string; email: string; groupName: string; role?: string }[]>([]);
+  const [parsedData, setParsedData] = useState<{ name: string; email: string; groupName: string }[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,7 +48,7 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported, eventId
       return;
     }
 
-    const guests: { name: string; email: string; groupName: string; role?: string }[] = [];
+    const guests: { name: string; email: string; groupName: string }[] = [];
     const parseErrors: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -71,9 +71,6 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported, eventId
           case 'group_name':
           case 'group':
             guest.groupName = value;
-            break;
-          case 'role':
-            guest.role = value || undefined;
             break;
         }
       });
@@ -134,7 +131,7 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported, eventId
   };
 
   const downloadTemplate = () => {
-    const csvContent = 'name,email,groupName,role\n"John Doe","john@example.com","John Doe","Speaker"\n"Jane Smith","jane@example.com","John Doe","Attendee"\n"Bob Wilson","bob@example.com","Sarah Johnson","VIP"';
+    const csvContent = 'name,email,groupName\n"John Doe","john@example.com","John Doe"\n"Jane Smith","jane@example.com","John Doe"\n"Bob Wilson","bob@example.com","Sarah Johnson"';
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -181,7 +178,7 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported, eventId
                     Choose CSV File
                   </Button>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Required: name, email, groupName (primary contact). Optional: role
+                    Required columns: name, email, groupName (primary contact person)
                   </p>
                 </div>
               </div>
@@ -222,9 +219,6 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported, eventId
                       <Badge variant="outline" className="shrink-0">{guest.groupName}</Badge>
                       <span>{guest.name}</span>
                       <span className="text-muted-foreground">({guest.email})</span>
-                      {guest.role && (
-                        <Badge variant="secondary">{guest.role}</Badge>
-                      )}
                     </div>
                   ))}
                   {parsedData.length > 5 && (
