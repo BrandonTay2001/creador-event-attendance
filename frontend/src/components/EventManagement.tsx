@@ -92,17 +92,10 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     }
   };
 
-  const handleBulkImport = async (importedGuests: { name: string; email: string; groupName: string; isPresent: boolean }[]) => {
-    let successCount = 0;
-    for (const guestData of importedGuests) {
-      const newGuest = await addGuest(eventId, guestData);
-      if (newGuest) successCount++;
-    }
-    
-    if (successCount > 0) {
-      await loadEvent();
-      toast.success(`Successfully imported ${successCount} attendees`);
-    }
+  const handleBulkImport = async () => {
+    // Just reload the event data after import
+    await loadEvent();
+    setShowBulkImportDialog(false);
   };
 
   const handleAttendeeSelection = (attendeeId: string, checked: boolean) => {
@@ -467,6 +460,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
         open={showBulkImportDialog}
         onOpenChange={setShowBulkImportDialog}
         onGuestsImported={handleBulkImport}
+        eventId={eventId}
       />
       
       <EmailSection 

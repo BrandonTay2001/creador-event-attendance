@@ -4,17 +4,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Upload, Download, AlertCircle, CheckCircle, X } from 'lucide-react';
-import { Person } from '../lib/eventData';
+import { bulkImportAttendees } from '../lib/api';
+import { toast } from 'sonner';
 
 interface BulkImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGuestsImported: (guests: Omit<Person, 'id'>[]) => void;
+  onGuestsImported: () => void; // Changed to just trigger reload
+  eventId: string; // Add eventId prop
 }
 
-export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkImportDialogProps) {
+export function BulkImportDialog({ open, onOpenChange, onGuestsImported, eventId }: BulkImportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [parsedData, setParsedData] = useState<Omit<Person, 'id'>[]>([]);
+  const [parsedData, setParsedData] = useState<{ name: string; email: string; groupName: string; role?: string }[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,7 +40,7 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
     }
 
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const requiredFields = ['name', 'email', 'groupid'];
+    const requiredFields = ['name', 'email', 'groupname'];
     const missingFields = requiredFields.filter(field => !headers.includes(field));
     
     if (missingFields.length > 0) {
@@ -46,14 +48,14 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
       return;
     }
 
-    const guests: Omit<Person, 'id'>[] = [];
+    const guests: { name: string; email: string; groupName: string; role?: string }[] = [];
     const parseErrors: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
       if (values.length < headers.length) continue;
 
-      const guest: any = { isPresent: false };
+      const guest: any = {};
       
       headers.forEach((header, index) => {
         const value = values[index]?.replace(/"/g, '').trim();
@@ -65,9 +67,10 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
           case 'email':
             guest.email = value;
             break;
-          case 'groupid':
-          case 'group_id':
-            guest.groupId = value;
+          case 'groupname':
+          case 'group_name':
+          case 'group':
+            guest.groupName = value;
             break;
           case 'role':
             guest.role = value || undefined;
@@ -76,8 +79,8 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
       });
 
       // Validate required fields
-      if (!guest.name || !guest.email || !guest.groupId) {
-        parseErrors.push(`Row ${i + 1}: Missing required fields (name, email, or groupId)`);
+      if (!guest.name || !guest.email || !guest.groupName) {
+        parseErrors.push(`Row ${i + 1}: Missing required fields (name, email, or groupName)`);
         continue;
       }
 
@@ -100,13 +103,23 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
 
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      onGuestsImported(parsedData);
-      onOpenChange(false);
-      resetState();
+      const result = await bulkImportAttendees(eventId, parsedData);
+      
+      if (result.successCount > 0) {
+        toast.success(`Successfully imported ${result.successCount} attendees`);
+        onGuestsImported(); // Trigger reload in parent
+        onOpenChange(false);
+        resetState();
+      }
+
+      if (result.errors.length > 0) {
+        setErrors(result.errors);
+        toast.error(`Import completed with ${result.errors.length} errors`);
+      }
     } catch (error) {
-      setErrors(['Failed to import guests. Please try again.']);
+      console.error('Import error:', error);
+      setErrors(['Failed to import attendees. Please try again.']);
+      toast.error('Failed to import attendees');
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +134,7 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
   };
 
   const downloadTemplate = () => {
-    const csvContent = 'name,email,groupId,role\n"John Doe","john@example.com","GRP001","Speaker"\n"Jane Smith","jane@example.com","GRP002","Attendee"';
+    const csvContent = 'name,email,groupName,role\n"John Doe","john@example.com","John Doe","Speaker"\n"Jane Smith","jane@example.com","John Doe","Attendee"\n"Bob Wilson","bob@example.com","Sarah Johnson","VIP"';
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -168,7 +181,7 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
                     Choose CSV File
                   </Button>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Required columns: name, email, groupId. Optional: role
+                    Required: name, email, groupName (primary contact). Optional: role
                   </p>
                 </div>
               </div>
@@ -206,7 +219,7 @@ export function BulkImportDialog({ open, onOpenChange, onGuestsImported }: BulkI
                 <div className="space-y-2">
                   {parsedData.slice(0, 5).map((guest, index) => (
                     <div key={index} className="flex items-center gap-2 text-sm">
-                      <Badge variant="outline" className="shrink-0">#{guest.groupId}</Badge>
+                      <Badge variant="outline" className="shrink-0">{guest.groupName}</Badge>
                       <span>{guest.name}</span>
                       <span className="text-muted-foreground">({guest.email})</span>
                       {guest.role && (

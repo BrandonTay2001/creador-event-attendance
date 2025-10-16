@@ -60,11 +60,11 @@ const { data } = await supabase
 
 ### 4. Group-First Import Flow
 When importing attendees via CSV (`BulkImportDialog`):
-1. CSV must have columns: `name`, `email`, `groupId` (or `group_id`)
-2. System does NOT auto-create groups - `groupId` must reference existing group UUID
+1. CSV must have columns: `name`, `email`, `groupName` (where groupName is the primary contact person's name)
+2. System automatically finds existing groups by contact name or creates new ones
 3. Import maps to `attendees` table with `group_id` foreign key
 
-**Important**: Groups must be created separately before bulk import. Each group has a primary contact (name/email).
+**Important**: Groups represent a primary contact person. Multiple attendees can be associated with the same group contact.
 
 ### 5. Role-Based Access Control
 ```typescript
