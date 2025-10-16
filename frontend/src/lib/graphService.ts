@@ -27,7 +27,7 @@ export class GraphEmailService {
     }
   }
 
-  async sendEmail(recipients: string[], subject: string, htmlContent: string): Promise<void> {
+  async sendEmail(recipients: string[], subject: string, htmlContent: string, attachments?: { name: string; base64: string }[]): Promise<void> {
     if (!this.graphClient) {
       throw new Error('Graph client not initialized. Microsoft access token may be missing.');
     }
@@ -47,6 +47,12 @@ export class GraphEmailService {
           content: htmlContent,
         },
         toRecipients: toRecipients,
+        attachments: attachments ? attachments.map(att => ({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: att.name,
+          contentType: 'image/png',
+          contentBytes: att.base64
+        })) : []
       },
       saveToSentItems: true,
     };

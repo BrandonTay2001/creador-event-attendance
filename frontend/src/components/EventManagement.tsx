@@ -117,7 +117,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     }
   };
 
-  const handleEmailSend = async (subject: string, content: string, recipients: Person[]) => {
+  const handleEmailSend = async (subject: string, content: string, recipients: Person[], attachments?: { [email: string]: { name: string; base64: string } }) => {
     if (recipients.length === 0) {
       toast.error('No recipients selected');
       return;
@@ -143,16 +143,38 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
         return;
       }
 
-      // Extract email addresses from recipients
-      const recipientEmails = recipients.map(person => person.email);
-      
-      // Send the email
-      await graphService.sendEmail(recipientEmails, subject, content);
-      
-      // Show success message
-      toast.success(`Email sent successfully to ${recipients.length} attendee(s)`);
-      
-      console.log('Email sent to:', recipientEmails.join(', '));
+      // Send individual emails with QR code attachments
+      if (attachments && Object.keys(attachments).length > 0) {
+        let successCount = 0;
+        let failureCount = 0;
+        
+        for (const recipient of recipients) {
+          try {
+            const recipientAttachment = attachments[recipient.email] 
+              ? [attachments[recipient.email]]
+              : undefined;
+            
+            await graphService.sendEmail([recipient.email], subject, content, recipientAttachment);
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to send email to ${recipient.email}:`, error);
+            failureCount++;
+          }
+        }
+        
+        if (successCount > 0) {
+          toast.success(`Email sent successfully to ${successCount} attendee(s)${failureCount > 0 ? ` (${failureCount} failed)` : ''}`);
+        }
+        if (failureCount > 0 && successCount === 0) {
+          toast.error(`Failed to send emails to all ${failureCount} recipients`);
+        }
+      } else {
+        // Standard bulk email sending without attachments
+        const recipientEmails = recipients.map(person => person.email);
+        await graphService.sendEmail(recipientEmails, subject, content);
+        toast.success(`Email sent successfully to ${recipients.length} attendee(s)`);
+        console.log('Email sent to:', recipientEmails.join(', '));
+      }
       
     } catch (error) {
       console.error('Error sending email:', error);
@@ -466,6 +488,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
       
       <EmailSection 
         selectedAttendees={getSelectedAttendeeObjects()}
+        eventId={eventId}
         onEmailSend={handleEmailSend}
       />
     </div>

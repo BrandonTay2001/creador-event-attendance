@@ -3,17 +3,19 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
-import { Mail, Users, Loader2 } from 'lucide-react';
+import { Mail, Users, Loader2, QrCode } from 'lucide-react';
 import { Person } from '../lib/eventData';
 import ReactQuill from 'react-quill';
+import QRCode from 'qrcode';
 import 'react-quill/dist/quill.snow.css';
 
 interface EmailSectionProps {
   selectedAttendees: Person[];
-  onEmailSend: (subject: string, content: string, recipients: Person[]) => Promise<void>;
+  eventId: string;
+  onEmailSend: (subject: string, content: string, recipients: Person[], attachments?: { [email: string]: { name: string; base64: string } }) => Promise<void>;
 }
 
-export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionProps) {
+export function EmailSection({ selectedAttendees, eventId, onEmailSend }: EmailSectionProps) {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailContent, setEmailContent] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -39,6 +41,40 @@ export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionPro
     'align', 'blockquote', 'code-block', 'link', 'image'
   ];
 
+  // Generate QR code for a specific attendee as attachment
+  const generateQRCodeForAttendee = async (attendee: Person): Promise<{ name: string; base64: string }> => {
+    const qrData = {
+      group_id: attendee.groupId,
+      event_id: eventId
+    };
+    
+    try {
+      // Generate QR code as data URL (base64 image)
+      const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData), {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      // Extract base64 data (remove the data:image/png;base64, prefix)
+      const base64Data = qrCodeDataURL.split(',')[1];
+      
+      // Generate filename for this QR code
+      const fileName = `QR-Code-${attendee.name.replace(/[^a-zA-Z0-9]/g, '-')}.png`;
+      
+      return {
+        name: fileName,
+        base64: base64Data
+      };
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      throw error;
+    }
+  };
+
   const handleSendEmail = async () => {
     if (!emailSubject.trim() || !emailContent.trim()) {
       return;
@@ -46,7 +82,20 @@ export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionPro
 
     setIsSending(true);
     try {
-      await onEmailSend(emailSubject, emailContent, selectedAttendees);
+      let qrAttachments: { [email: string]: { name: string; base64: string } } = {};
+      
+      // Generate QR code attachments for each attendee
+      for (const attendee of selectedAttendees) {
+        try {
+          const qrAttachment = await generateQRCodeForAttendee(attendee);
+          qrAttachments[attendee.email] = qrAttachment;
+        } catch (error) {
+          console.error(`Failed to generate QR code for ${attendee.email}:`, error);
+          // Continue without QR code for this attendee
+        }
+      }
+
+      await onEmailSend(emailSubject, emailContent, selectedAttendees, qrAttachments);
       
       // Clear the form after successful sending
       setEmailSubject('');
@@ -82,7 +131,26 @@ export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionPro
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email-content">Email Content</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="email-content">Email Content</Label>
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <QrCode className="w-3 h-3" />
+              QR codes will be attached automatically
+            </div>
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-md p-3 text-sm">
+            <div className="flex items-start gap-2">
+              <QrCode className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <div className="text-green-800">
+                <strong>QR Code Attachments</strong>
+                <p className="mt-1 text-green-700">
+                  Each recipient will receive a personalized QR code as an email attachment. 
+                  The QR code contains their group_id and event_id for check-in purposes.
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="border rounded-md">
             <ReactQuill
               theme="snow"
@@ -90,7 +158,7 @@ export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionPro
               onChange={setEmailContent}
               modules={modules}
               formats={formats}
-              placeholder="Write your email message here..."
+              placeholder="Write your email message here... QR codes will be automatically attached to each email."
               style={{ minHeight: '200px' }}
             />
           </div>
