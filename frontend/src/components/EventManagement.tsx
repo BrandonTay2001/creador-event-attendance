@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { ActionMenu, ActionMenuTrigger, ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from './ui/action-menu';
-import { ArrowLeft, Plus, Trash2, Edit, Search, Users, Mail, Hash, Settings, Download, Upload, Send, MoreVertical, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit, Search, Users, Mail, Hash, Settings, Download, Upload, Send, MoreVertical, Loader2, QrCode } from 'lucide-react';
 import { getEventList, addGuest, removeGuest, updateGuest, updateEvent, Person, Event } from '../lib/eventData';
+import QRCode from 'qrcode';
 import { AddGuestDialog } from './AddGuestDialog';
 import { EditGuestDialog } from './EditGuestDialog';
 import { EditEventDialog } from './EditEventDialog';
@@ -196,6 +197,38 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
 
   const getSelectedAttendeeObjects = (): Person[] => {
     return guests.filter(guest => selectedAttendees.has(guest.id));
+  };
+
+  const downloadQRCode = async (attendee: Person) => {
+    try {
+      const qrData = {
+        group_id: attendee.groupId,
+        event_id: eventId
+      };
+      
+      // Generate QR code as data URL (base64 image)
+      const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData), {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      // Create a download link
+      const link = document.createElement('a');
+      link.href = qrCodeDataURL;
+      link.download = `QR-Code-${attendee.name.replace(/[^a-zA-Z0-9]/g, '-')}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`QR code for ${attendee.name} downloaded successfully`);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      toast.error('Failed to generate QR code');
+    }
   };
 
   const downloadCSV = () => {
@@ -419,6 +452,15 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
                       onClick={() => setEditingGuest(guest)}
                     >
                       <Edit className="w-4 h-4" />
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => downloadQRCode(guest)}
+                      title={`Download QR code for ${guest.name}`}
+                    >
+                      <QrCode className="w-4 h-4" />
                     </Button>
                     
                     <AlertDialog>
