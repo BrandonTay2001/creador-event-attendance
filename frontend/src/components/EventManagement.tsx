@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from './ui/dropdown-menu';
+import { ActionMenu, ActionMenuTrigger, ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from './ui/action-menu';
 import { ArrowLeft, Plus, Trash2, Edit, Search, Users, Mail, Hash, Settings, Download, Upload, Send, MoreVertical, Loader2 } from 'lucide-react';
 import { getEventList, addGuest, removeGuest, updateGuest, updateEvent, Person, Event } from '../lib/eventData';
 import { AddGuestDialog } from './AddGuestDialog';
@@ -266,33 +266,27 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
                 Add Guest
               </Button>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setShowEditEventDialog(true)}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Edit Event Details
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowBulkImportDialog(true)}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Import from CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={downloadCSV} disabled={guests.length === 0}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Download CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={sendInviteEmails} disabled={guests.length === 0}>
-                    <Send className="w-4 h-4 mr-2" />
-                    Send Invitations
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <ActionMenu>
+                <ActionMenuTrigger />
+                <ActionMenuContent align="end">
+                  <ActionMenuItem onClick={() => setShowEditEventDialog(true)}>
+                    <Edit className="w-4 h-4" />
+                    Edit Event
+                  </ActionMenuItem>
+                  <ActionMenuSeparator />
+                  <ActionMenuItem onClick={() => setShowBulkImportDialog(true)}>
+                    <Upload className="w-4 h-4" />
+                    Import CSV
+                  </ActionMenuItem>
+                  <ActionMenuItem 
+                    onClick={downloadCSV}
+                    disabled={guests.length === 0}
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </ActionMenuItem>
+                </ActionMenuContent>
+              </ActionMenu>
             </div>
           </div>
         </CardHeader>
