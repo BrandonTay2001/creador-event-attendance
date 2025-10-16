@@ -14,6 +14,8 @@ import { EmailSection } from './EmailSection';
 import { Checkbox } from './ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { toast } from 'sonner@2.0.3';
+import { useAuth } from '../contexts/AuthContext';
+import { createGraphEmailService } from '../lib/graphService';
 
 interface EventManagementProps {
   eventId: string;
@@ -21,6 +23,7 @@ interface EventManagementProps {
 }
 
 export function EventManagement({ eventId, onBack }: EventManagementProps) {
+  const { getMicrosoftAccessToken } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [guests, setGuests] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,10 +124,59 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     }
   };
 
-  const handleEmailSend = (subject: string, content: string, recipients: Person[]) => {
-    // For now, just show a success message
-    toast.success(`Email prepared for ${recipients.length} attendee(s): "${subject}"`);
-    console.log('Email details:', { subject, content, recipients });
+  const handleEmailSend = async (subject: string, content: string, recipients: Person[]) => {
+    if (recipients.length === 0) {
+      toast.error('No recipients selected');
+      return;
+    }
+
+    const accessToken = getMicrosoftAccessToken();
+    if (!accessToken) {
+      toast.error('Microsoft access token not available. Please sign in with Microsoft to send emails.');
+      return;
+    }
+
+    try {
+      const graphService = createGraphEmailService(accessToken);
+      if (!graphService) {
+        toast.error('Failed to initialize email service');
+        return;
+      }
+
+      // Test connection first
+      const connectionTest = await graphService.testConnection();
+      if (!connectionTest) {
+        toast.error('Failed to connect to Microsoft Graph. Please try signing in again.');
+        return;
+      }
+
+      // Extract email addresses from recipients
+      const recipientEmails = recipients.map(person => person.email);
+      
+      // Send the email
+      await graphService.sendEmail(recipientEmails, subject, content);
+      
+      // Show success message
+      toast.success(`Email sent successfully to ${recipients.length} attendee(s)`);
+      
+      console.log('Email sent to:', recipientEmails.join(', '));
+      
+    } catch (error) {
+      console.error('Error sending email:', error);
+      
+      let errorMessage = 'Failed to send email';
+      if (error instanceof Error) {
+        if (error.message.includes('Insufficient privileges')) {
+          errorMessage = 'Insufficient permissions to send emails. Please ensure you have Mail.Send permissions.';
+        } else if (error.message.includes('Unauthorized')) {
+          errorMessage = 'Authentication failed. Please try signing in again.';
+        } else {
+          errorMessage = `Email sending failed: ${error.message}`;
+        }
+      }
+      
+      toast.error(errorMessage);
+    }
   };
 
   const getSelectedAttendeeObjects = (): Person[] => {

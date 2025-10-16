@@ -3,19 +3,20 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
-import { Mail, Users } from 'lucide-react';
+import { Mail, Users, Loader2 } from 'lucide-react';
 import { Person } from '../lib/eventData';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 interface EmailSectionProps {
   selectedAttendees: Person[];
-  onEmailSend: (subject: string, content: string, recipients: Person[]) => void;
+  onEmailSend: (subject: string, content: string, recipients: Person[]) => Promise<void>;
 }
 
 export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionProps) {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailContent, setEmailContent] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   // ReactQuill modules configuration with toolbar options
   const modules = {
@@ -38,16 +39,24 @@ export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionPro
     'align', 'blockquote', 'code-block', 'link', 'image'
   ];
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (!emailSubject.trim() || !emailContent.trim()) {
       return;
     }
 
-    onEmailSend(emailSubject, emailContent, selectedAttendees);
-    
-    // Clear the form after sending
-    setEmailSubject('');
-    setEmailContent('');
+    setIsSending(true);
+    try {
+      await onEmailSend(emailSubject, emailContent, selectedAttendees);
+      
+      // Clear the form after successful sending
+      setEmailSubject('');
+      setEmailContent('');
+    } catch (error) {
+      // Error handling is done in the parent component
+      console.error('Email sending failed:', error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -109,11 +118,15 @@ export function EmailSection({ selectedAttendees, onEmailSend }: EmailSectionPro
         <div className="flex gap-2 pt-4">
           <Button
             onClick={handleSendEmail}
-            disabled={selectedAttendees.length === 0 || !emailSubject.trim() || !emailContent.trim()}
+            disabled={selectedAttendees.length === 0 || !emailSubject.trim() || !emailContent.trim() || isSending}
             className="flex-1"
           >
-            <Mail className="w-4 h-4 mr-2" />
-            Email Selected Attendees ({selectedAttendees.length})
+            {isSending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Mail className="w-4 h-4 mr-2" />
+            )}
+            {isSending ? 'Sending Email...' : `Email Selected Attendees (${selectedAttendees.length})`}
           </Button>
         </div>
       </CardContent>

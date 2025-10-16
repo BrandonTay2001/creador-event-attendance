@@ -106,7 +106,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
-        scopes: 'openid email profile User.Read Mail.Send'
+        scopes: 'openid email profile User.Read Mail.Send',
+        queryParams: {
+          // Force account chooser every time to avoid silent SSO reuse
+          prompt: 'select_account'
+        }
       }
     })
     return { error }
