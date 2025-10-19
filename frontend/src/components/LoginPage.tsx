@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { LogIn, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { isAdmin } from '../lib/roles';
 
 interface LoginPageProps {
   onLogin: (userData: { username: string; isAdmin: boolean }) => void;
@@ -35,12 +36,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       if (user) {
         // Get user role from the database
         const role = await getUserRole();
-        const isAdmin = role === 'admin';
+        const userIsAdmin = isAdmin(role);
         console.log(role);
         
         onLogin({
           username: user.email || 'User',
-          isAdmin
+          isAdmin: userIsAdmin
         });
       }
     } catch (err) {

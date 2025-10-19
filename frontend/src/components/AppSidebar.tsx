@@ -9,15 +9,17 @@ import {
   SidebarFooter,
   SidebarTrigger
 } from './ui/sidebar';
-import { Settings, LogOut, User, Calendar } from 'lucide-react';
+import { Settings, LogOut, User, Calendar, Users } from 'lucide-react';
+import { isSuperAdmin, type UserRole } from '../lib/roles';
 
 interface AppSidebarProps {
-  user: { username: string; isAdmin: boolean } | null;
+  user: { username: string; isAdmin: boolean; role?: UserRole | null } | null;
   onAdminClick: () => void;
+  onUserManagementClick: () => void;
   onLogout: () => void;
 }
 
-export function AppSidebar({ user, onAdminClick, onLogout }: AppSidebarProps) {
+export function AppSidebar({ user, onAdminClick, onUserManagementClick, onLogout }: AppSidebarProps) {
   if (!user) return null;
 
   return (
@@ -36,7 +38,8 @@ export function AppSidebar({ user, onAdminClick, onLogout }: AppSidebarProps) {
             <div>
               <p className="font-medium">{user.username}</p>
               <p className="text-xs text-muted-foreground">
-                {user.isAdmin ? 'Administrator' : 'User'}
+                {user.role === 'superAdmin' ? 'Super Administrator' : 
+                 user.isAdmin ? 'Administrator' : 'User'}
               </p>
             </div>
           </div>
@@ -53,6 +56,17 @@ export function AppSidebar({ user, onAdminClick, onLogout }: AppSidebarProps) {
                 <span>Admin Dashboard</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            {isSuperAdmin(user.role || null) && (
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={onUserManagementClick}
+                  className="w-full justify-start border-2 border-dashed border-muted-foreground/30 hover:border-muted-foreground/50 hover:bg-sidebar-accent"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>User Management</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         )}
       </SidebarContent>

@@ -4,17 +4,20 @@ import { AttendancePage } from './components/AttendancePage';
 import { EventSelector } from './components/EventSelector';
 import { AdminDashboard } from './components/AdminDashboard';
 import { EventManagement } from './components/EventManagement';
+import { UserManagement } from './components/UserManagement';
 import { LoginPage } from './components/LoginPage';
 import { AppSidebar } from './components/AppSidebar';
 import { SidebarProvider, SidebarTrigger } from './components/ui/sidebar';
 import { Toaster } from './components/ui/sonner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { isAdmin, type UserRole } from './lib/roles';
 
-type AppState = 'home' | 'attendance' | 'admin' | 'event-management';
+type AppState = 'home' | 'attendance' | 'admin' | 'event-management' | 'user-management';
 
 interface User {
   username: string;
   isAdmin: boolean;
+  role?: UserRole | null;
 }
 
 function AppContent() {
@@ -29,11 +32,12 @@ function AppContent() {
       if (user) {
         // Get user role and set up app user
         const role = await getUserRole();
-        const isAdmin = role === 'admin';
+        const userIsAdmin = isAdmin(role);
         
         setAppUser({
           username: user.email || 'User',
-          isAdmin
+          isAdmin: userIsAdmin,
+          role
         });
       } else {
         setAppUser(null);
@@ -92,6 +96,10 @@ function AppContent() {
     setCurrentEventId('');
   };
 
+  const handleGoToUserManagement = () => {
+    setCurrentState('user-management');
+  };
+
   // Show loading while checking authentication
   if (loading) {
     return (
@@ -115,6 +123,7 @@ function AppContent() {
         <AppSidebar 
           user={appUser}
           onAdminClick={handleGoToAdmin}
+          onUserManagementClick={handleGoToUserManagement}
           onLogout={handleLogout}
         />
         
@@ -171,8 +180,14 @@ function AppContent() {
                 />
               )}
 
+              {currentState === 'user-management' && appUser.isAdmin && (
+                <UserManagement 
+                  onBack={handleBackToAdmin}
+                />
+              )}
+
               {/* Fallback for non-admin users trying to access admin pages */}
-              {(currentState === 'admin' || currentState === 'event-management') && !appUser.isAdmin && (
+              {(currentState === 'admin' || currentState === 'event-management' || currentState === 'user-management') && !appUser.isAdmin && (
                 <div className="text-center py-12">
                   <h2 className="text-lg mb-2">Access Denied</h2>
                   <p className="text-muted-foreground mb-4">

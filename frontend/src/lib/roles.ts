@@ -1,6 +1,9 @@
 import { supabase } from './supabase'
 
-export type UserRole = 'admin' | 'staff'
+export type UserRole = 'admin' | 'staff' | 'superAdmin'
+
+// Roles that can be assigned to users (excludes superAdmin)
+export type AssignableUserRole = 'admin' | 'staff'
 
 export interface UserRoleData {
   id: string
@@ -44,6 +47,8 @@ export async function upsertUserRole(userId: string, role: UserRole): Promise<bo
         user_id: userId,
         role,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
       })
     
     if (error) {
@@ -62,7 +67,14 @@ export async function upsertUserRole(userId: string, role: UserRole): Promise<bo
  * Check if user has admin privileges
  */
 export function isAdmin(role: UserRole | null): boolean {
-  return role === 'admin'
+  return role === 'admin' || role === 'superAdmin'
+}
+
+/**
+ * Check if user has super admin privileges
+ */
+export function isSuperAdmin(role: UserRole | null): boolean {
+  return role === 'superAdmin'
 }
 
 /**
