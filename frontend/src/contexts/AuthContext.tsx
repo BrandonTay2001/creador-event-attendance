@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean
   microsoftAccessToken: string | null
   signIn: (email: string, password: string) => Promise<{ user: User | null; error: AuthError | null }>
+  signUp: (email: string, password: string) => Promise<{ user: User | null; error: AuthError | null }>
   signInWithMicrosoft: () => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
   getUserRole: () => Promise<string | null>
@@ -102,6 +103,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return { user: data?.user ?? null, error }
   }
 
+  const signUp = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+    return { user: data?.user ?? null, error }
+  }
+
   const signInWithMicrosoft = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
@@ -174,6 +183,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     microsoftAccessToken,
     signIn,
+    signUp,
     signInWithMicrosoft,
     signOut,
     getUserRole,

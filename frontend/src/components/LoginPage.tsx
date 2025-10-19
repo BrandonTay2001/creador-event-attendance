@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { LogIn, Calendar } from 'lucide-react';
+import { LogIn, Calendar, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isAdmin } from '../lib/roles';
 
@@ -14,38 +14,78 @@ interface LoginPageProps {
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, signInWithMicrosoft, getUserRole } = useAuth();
+  const [success, setSuccess] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const { signIn, signUp, signInWithMicrosoft, getUserRole } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccess('');
+
+    // Validate passwords match for sign-up
+    if (isSignUp && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const { user, error: authError } = await signIn(formData.email, formData.password);
-      
-      if (authError) {
-        setError(authError.message);
-        return;
-      }
-
-      if (user) {
-        // Get user role from the database
-        const role = await getUserRole();
-        const userIsAdmin = isAdmin(role);
-        console.log(role);
+      if (isSignUp) {
+        // Sign up new user
+        const { user, error: authError } = await signUp(formData.email, formData.password);
         
-        onLogin({
-          username: user.email || 'User',
-          isAdmin: userIsAdmin
-        });
+        if (authError) {
+          setError(authError.message);
+          return;
+        }
+
+        if (user) {
+          if (user.email_confirmed_at) {
+            // User is immediately confirmed (email confirmation disabled)
+            const role = await getUserRole();
+            const userIsAdmin = isAdmin(role);
+            
+            onLogin({
+              username: user.email || 'User',
+              isAdmin: userIsAdmin
+            });
+          } else {
+            // Email confirmation required
+            setSuccess('Account created! Please check your email to verify your account before signing in.');
+            setIsSignUp(false); // Switch to sign-in mode
+            setFormData(prev => ({ ...prev, confirmPassword: '' }));
+          }
+        }
+      } else {
+        // Sign in existing user
+        const { user, error: authError } = await signIn(formData.email, formData.password);
+        
+        if (authError) {
+          setError(authError.message);
+          return;
+        }
+
+        if (user) {
+          // Get user role from the database
+          const role = await getUserRole();
+          const userIsAdmin = isAdmin(role);
+          console.log(role);
+          
+          onLogin({
+            username: user.email || 'User',
+            isAdmin: userIsAdmin
+          });
+        }
       }
     } catch (err) {
-      setError('Login failed. Please try again.');
+      setError(isSignUp ? 'Sign up failed. Please try again.' : 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -54,6 +94,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (error) setError('');
+    if (success) setSuccess('');
+  };
+
+  const toggleMode = () => {
+    setIsSignUp(prev => !prev);
+    setError('');
+    setSuccess('');
+    setFormData({
+      email: '',
+      password: '',
+      confirmPassword: ''
+    });
   };
 
   const handleMicrosoftSignIn = async () => {
@@ -86,7 +138,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <CardTitle>Event Management</CardTitle>
           </div>
           <p className="text-muted-foreground">
-            Sign in to access the event management system
+            {isSignUp ? 'Create an account to access the event management system' : 'Sign in to access the event management system'}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -115,19 +167,43 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               />
             </div>
 
+            {isSignUp && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                  placeholder="Confirm your password"
+                  disabled={isLoading}
+                />
+              </div>
+            )}
+
             {error && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
                 {error}
               </div>
             )}
 
+            {success && (
+              <div className="text-sm text-green-700 bg-green-50 border border-green-200 p-3 rounded-md">
+                {success}
+              </div>
+            )}
+
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={isLoading || !formData.email || !formData.password}
+              disabled={isLoading || !formData.email || !formData.password || (isSignUp && !formData.confirmPassword)}
             >
-              <LogIn className="w-4 h-4 mr-2" />
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isSignUp ? (
+                <UserPlus className="w-4 h-4 mr-2" />
+              ) : (
+                <LogIn className="w-4 h-4 mr-2" />
+              )}
+              {isLoading ? (isSignUp ? 'Creating account...' : 'Signing in...') : (isSignUp ? 'Create Account' : 'Sign In')}
             </Button>
           </form>
 
@@ -149,6 +225,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             Sign in with Microsoft
           </Button>
 
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={toggleMode}
+              disabled={isLoading}
+              className="text-sm text-muted-foreground hover:text-primary underline disabled:opacity-50"
+            >
+              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            </button>
+          </div>
           
         </CardContent>
       </Card>
