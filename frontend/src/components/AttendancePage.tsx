@@ -20,7 +20,7 @@ import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { ArrowLeft, Users, Check, X, Search, Loader2, QrCode } from 'lucide-react';
-import { getEvent, getEventAttendees, getGroupAttendees, markAttendance, toggleAttendeeAttendance, AttendeeWithGroup } from '../lib/api';
+import { getEvent, getEventAttendees, getGroupAttendees, markAttendance, AttendeeWithGroup } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -37,6 +37,7 @@ interface QRCodeData {
 
 export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps) {
   const [attendees, setAttendees] = useState<AttendeeWithGroup[]>([]);
+  const [originalAttendees, setOriginalAttendees] = useState<AttendeeWithGroup[]>([]);
   const [eventName, setEventName] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [groupContactName, setGroupContactName] = useState('');
@@ -46,6 +47,7 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
   const [error, setError] = useState<string | null>(null);
   const [isQRMode, setIsQRMode] = useState(false);
   const [parsedQRData, setParsedQRData] = useState<QRCodeData | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -106,6 +108,8 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
       }
       
       setAttendees(eventAttendees);
+      setOriginalAttendees([...eventAttendees]); // Store original state
+      setHasUnsavedChanges(false);
     } catch (err) {
       console.error('Error loading event data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load event data. Please try again.');
@@ -115,95 +119,119 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
     }
   };
 
-  const toggleAttendance = async (attendeeId: string) => {
-    try {
-      const staffName = user?.email || 'Staff';
-      const success = await toggleAttendeeAttendance(attendeeId, staffName);
-      
-      if (success) {
-        // Update local state
-        setAttendees(prev => 
-          prev.map(attendee => 
-            attendee.id === attendeeId 
-              ? { 
-                  ...attendee, 
-                  is_attending: !attendee.is_attending,
-                  checked_in_at: !attendee.is_attending ? new Date().toISOString() : null,
-                  checked_in_by: !attendee.is_attending ? staffName : null
-                }
-              : attendee
-          )
-        );
-        toast.success('Attendance updated');
-      } else {
-        toast.error('Failed to update attendance');
-      }
-    } catch (err) {
-      console.error('Error toggling attendance:', err);
-      toast.error('Failed to update attendance');
+  const toggleAttendance = (attendeeId: string) => {
+    const staffName = user?.email || 'Staff';
+    
+    // Update local state only
+    setAttendees(prev => 
+      prev.map(attendee => 
+        attendee.id === attendeeId 
+          ? { 
+              ...attendee, 
+              is_attending: !attendee.is_attending,
+              checked_in_at: !attendee.is_attending ? new Date().toISOString() : null,
+              checked_in_by: !attendee.is_attending ? staffName : null
+            }
+          : attendee
+      )
+    );
+    
+    setHasUnsavedChanges(true);
+  };
+
+  const markAllPresent = () => {
+    const staffName = user?.email || 'Staff';
+    const attendeeIds = attendees.filter(a => !a.is_attending).map(a => a.id);
+    
+    if (attendeeIds.length > 0) {
+      setAttendees(prev => prev.map(attendee => ({
+        ...attendee,
+        is_attending: true,
+        checked_in_at: new Date().toISOString(),
+        checked_in_by: staffName
+      })));
+      setHasUnsavedChanges(true);
     }
   };
 
-  const markAllPresent = async () => {
-    try {
-      setIsSaving(true);
-      const staffName = user?.email || 'Staff';
-      const attendeeIds = attendees.filter(a => !a.is_attending).map(a => a.id);
-      
-      if (attendeeIds.length > 0) {
-        const success = await markAttendance(attendeeIds, true, staffName);
-        
-        if (success) {
-          setAttendees(prev => prev.map(attendee => ({
-            ...attendee,
-            is_attending: true,
-            checked_in_at: new Date().toISOString(),
-            checked_in_by: staffName
-          })));
-          toast.success(`Marked ${attendeeIds.length} attendees as present`);
-        } else {
-          toast.error('Failed to mark all as present');
-        }
-      }
-    } catch (err) {
-      console.error('Error marking all present:', err);
-      toast.error('Failed to mark all as present');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const clearAll = async () => {
-    try {
-      setIsSaving(true);
-      const attendeeIds = attendees.filter(a => a.is_attending).map(a => a.id);
-      
-      if (attendeeIds.length > 0) {
-        const success = await markAttendance(attendeeIds, false, '');
-        
-        if (success) {
-          setAttendees(prev => prev.map(attendee => ({
-            ...attendee,
-            is_attending: false,
-            checked_in_at: null,
-            checked_in_by: null
-          })));
-          toast.success(`Cleared ${attendeeIds.length} attendees`);
-        } else {
-          toast.error('Failed to clear attendance');
-        }
-      }
-    } catch (err) {
-      console.error('Error clearing all:', err);
-      toast.error('Failed to clear attendance');
-    } finally {
-      setIsSaving(false);
+  const clearAll = () => {
+    const attendeeIds = attendees.filter(a => a.is_attending).map(a => a.id);
+    
+    if (attendeeIds.length > 0) {
+      setAttendees(prev => prev.map(attendee => ({
+        ...attendee,
+        is_attending: false,
+        checked_in_at: null,
+        checked_in_by: null
+      })));
+      setHasUnsavedChanges(true);
     }
   };
 
   const saveAttendance = async () => {
-    // Attendance is saved in real-time, so this is just for UI feedback
-    toast.success('All changes have been saved!');
+    if (!hasUnsavedChanges) {
+      toast.success('No changes to save');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      // Find attendees that have changed compared to original state
+      const changedAttendees = attendees.filter((current, index) => {
+        const original = originalAttendees[index];
+        return original && current.is_attending !== original.is_attending;
+      });
+
+      if (changedAttendees.length === 0) {
+        toast.success('No changes to save');
+        setHasUnsavedChanges(false);
+        return;
+      }
+
+      // Group changes by attendance status for batch updates
+      const toMarkPresent = changedAttendees
+        .filter(attendee => attendee.is_attending)
+        .map(attendee => attendee.id);
+      
+      const toMarkAbsent = changedAttendees
+        .filter(attendee => !attendee.is_attending)
+        .map(attendee => attendee.id);
+
+      const staffName = user?.email || 'Staff';
+      let successCount = 0;
+
+      // Save present attendees
+      if (toMarkPresent.length > 0) {
+        const success = await markAttendance(toMarkPresent, true, staffName);
+        if (success) {
+          successCount += toMarkPresent.length;
+        } else {
+          throw new Error('Failed to save some attendance changes');
+        }
+      }
+
+      // Save absent attendees
+      if (toMarkAbsent.length > 0) {
+        const success = await markAttendance(toMarkAbsent, false, '');
+        if (success) {
+          successCount += toMarkAbsent.length;
+        } else {
+          throw new Error('Failed to save some attendance changes');
+        }
+      }
+
+      // Update original attendees to reflect saved state
+      setOriginalAttendees([...attendees]);
+      setHasUnsavedChanges(false);
+      
+      toast.success(`Successfully saved ${successCount} attendance changes`);
+    } catch (err) {
+      console.error('Error saving attendance:', err);
+      toast.error('Failed to save attendance changes');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Filter attendees based on search term (only in manual mode)
@@ -301,18 +329,18 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
                 variant="outline" 
                 size="sm" 
                 onClick={clearAll}
-                disabled={isSaving || presentCount === 0}
+                disabled={presentCount === 0}
               >
-                {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <X className="w-4 h-4 mr-1" />}
+                <X className="w-4 h-4 mr-1" />
                 Clear All
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={markAllPresent}
-                disabled={isSaving || presentCount === totalCount}
+                disabled={presentCount === totalCount}
               >
-                {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                <Check className="w-4 h-4 mr-1" />
                 Mark All
               </Button>
             </div>
@@ -408,13 +436,28 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
 
       <Card>
         <CardContent className="pt-6">
-          <Button 
-            onClick={saveAttendance} 
-            disabled={isSaving}
-            className="w-full"
-          >
-            {isSaving ? 'Saving...' : 'Save Attendance'}
-          </Button>
+          <div className="space-y-2">
+            {hasUnsavedChanges && (
+              <p className="text-sm text-muted-foreground text-center">
+                You have unsaved changes
+              </p>
+            )}
+            <Button 
+              onClick={saveAttendance} 
+              disabled={isSaving}
+              className="w-full"
+              variant={hasUnsavedChanges ? "default" : "outline"}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                hasUnsavedChanges ? 'Save Changes' : 'No Changes to Save'
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
