@@ -182,7 +182,7 @@ function AppContent() {
 
               {currentState === 'user-management' && appUser.isAdmin && (
                 <UserManagement 
-                  onBack={handleBackToAdmin}
+                  onBack={handleBackToHome}
                 />
               )}
 
