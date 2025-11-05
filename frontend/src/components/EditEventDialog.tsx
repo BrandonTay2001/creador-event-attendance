@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Calendar, MapPin, Clock } from 'lucide-react';
+import { Calendar, MapPin } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -12,7 +12,6 @@ interface Event {
   description?: string;
   date?: string;
   location?: string;
-  time?: string;
 }
 
 interface EditEventDialogProps {
@@ -27,8 +26,7 @@ export function EditEventDialog({ event, open, onOpenChange, onEventUpdated }: E
     name: '',
     description: '',
     date: '',
-    location: '',
-    time: ''
+    location: ''
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,8 +36,7 @@ export function EditEventDialog({ event, open, onOpenChange, onEventUpdated }: E
         name: event.name || '',
         description: event.description || '',
         date: event.date ? new Date(event.date).toISOString().split('T')[0] : '',
-        location: event.location || '',
-        time: event.time || ''
+        location: event.location || ''
       });
     }
   }, [event]);
@@ -55,8 +52,7 @@ export function EditEventDialog({ event, open, onOpenChange, onEventUpdated }: E
       const updates: Partial<Event> = {
         name: formData.name,
         description: formData.description,
-        location: formData.location,
-        time: formData.time
+        location: formData.location
       };
 
       if (formData.date) {
@@ -106,32 +102,17 @@ export function EditEventDialog({ event, open, onOpenChange, onEventUpdated }: E
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                Date
-              </Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => handleChange('date', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="time" className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                Time
-              </Label>
-              <Input
-                id="time"
-                type="time"
-                value={formData.time}
-                onChange={(e) => handleChange('time', e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="date" className="flex items-center gap-1">
+              <Calendar className="w-4 h-4" />
+              Date
+            </Label>
+            <Input
+              id="date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => handleChange('date', e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">

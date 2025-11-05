@@ -95,7 +95,7 @@ export function EventSelector({ onEventSelect }: EventSelectorProps) {
                     <div className="flex flex-col items-start">
                       <span>{event.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {eventDate} • {stats ? `${stats.total} participants` : 'Loading...'}
+                        {eventDate}{event.location ? ` • ${event.location}` : ''} • {stats ? `${stats.total} participants` : 'Loading...'}
                       </span>
                     </div>
                   </SelectItem>
@@ -111,7 +111,7 @@ export function EventSelector({ onEventSelect }: EventSelectorProps) {
               <strong>{selectedEvent.name}</strong>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {new Date(selectedEvent.event_date).toLocaleDateString()} • 
+              {new Date(selectedEvent.event_date).toLocaleDateString()}{selectedEvent.location ? ` • ${selectedEvent.location}` : ''} • 
               {selectedEventStats.total} participants registered • 
               {selectedEventStats.checkedIn} checked in
             </p>

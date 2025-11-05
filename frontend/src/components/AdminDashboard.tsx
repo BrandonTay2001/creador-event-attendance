@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { ArrowLeft, Plus, Settings, Calendar, Users, Trash2, Edit, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Calendar, Users, Trash2, Edit, Loader2, MapPin } from 'lucide-react';
 import { getEventList, deleteEvent, Event } from '../lib/eventData';
 import { CreateEventDialog } from './CreateEventDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
@@ -128,6 +128,12 @@ export function AdminDashboard({ onBack, onEventClick }: AdminDashboardProps) {
                         <Calendar className="w-4 h-4" />
                         {formatDate(event.date)}
                       </span>
+                      {event.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {event.location}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
                         {event.people.filter(p => p.isPresent).length} attended

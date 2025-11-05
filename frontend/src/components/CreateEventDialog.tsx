@@ -16,7 +16,8 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    date: ''
+    date: '',
+    location: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,11 +30,12 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
         name: formData.name,
         description: formData.description || undefined,
         date: formData.date || undefined,
+        location: formData.location || undefined,
         people: []
       });
 
       if (newEvent) {
-        setFormData({ name: '', description: '', date: '' });
+        setFormData({ name: '', description: '', date: '', location: '' });
         onEventCreated();
       } else {
         console.error('Failed to create event');
@@ -88,6 +90,16 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
               type="date"
               value={formData.date}
               onChange={(e) => handleChange('date', e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="location">Location (Optional)</Label>
+            <Input
+              id="location"
+              value={formData.location}
+              onChange={(e) => handleChange('location', e.target.value)}
+              placeholder="Enter event location"
             />
           </div>
 
