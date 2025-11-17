@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Mail, Users, Loader2, QrCode } from 'lucide-react';
 import { Person } from '../lib/eventData';
-import ReactQuill from 'react-quill';
+import { Editor } from '@tinymce/tinymce-react';
 import QRCode from 'qrcode';
-import 'react-quill/dist/quill.snow.css';
+import { uploadImageToStorage } from '../lib/supabaseStorage';
 
 interface EmailSectionProps {
   selectedAttendees: Person[];
@@ -19,27 +19,34 @@ export function EmailSection({ selectedAttendees, eventId, onEmailSend }: EmailS
   const [emailSubject, setEmailSubject] = useState('');
   const [emailContent, setEmailContent] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const editorRef = useRef<any>(null);
 
-  // ReactQuill modules configuration with toolbar options
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }],
-      [{ 'align': [] }],
-      ['blockquote', 'code-block'],
-      ['link', 'image'],
-      ['clean']
-    ],
+  // TinyMCE init configuration
+  const tinymceInit = {
+    menubar: false,
+    plugins: ['link', 'image', 'code', 'lists', 'paste'],
+    toolbar: 'undo redo | bold italic underline | alignleft aligncenter alignright | bullist numlist | link image | code',
+    paste_data_images: true,
+    automatic_uploads: true,
+    images_upload_handler: (blobInfo: any) => {
+      return new Promise<string>(async (resolve, reject) => {
+        try {
+          const blob = blobInfo.blob();
+          const fileName = blobInfo.filename();
+  
+          const publicUrl = await uploadImageToStorage(blob, {
+            fileName,
+            contentType: blob.type
+          });
+  
+          resolve(publicUrl);
+        } catch (err) {
+          console.error('Image upload handler failed:', err);
+          reject(err instanceof Error ? err.message : 'Image upload failed');
+        }
+      });
+    }
   };
-
-  const formats = [
-    'header', 'bold', 'italic', 'underline', 'strike',
-    'color', 'background', 'list', 'bullet', 'indent',
-    'align', 'blockquote', 'code-block', 'link', 'image'
-  ];
 
   // Generate QR code for a specific attendee as attachment
   const generateQRCodeForAttendee = async (attendee: Person): Promise<{ name: string; base64: string }> => {
@@ -95,7 +102,9 @@ export function EmailSection({ selectedAttendees, eventId, onEmailSend }: EmailS
         }
       }
 
-      await onEmailSend(emailSubject, emailContent, selectedAttendees, qrAttachments);
+      // Send the HTML as-is (contains embedded data URL images). No cid attachments conversion.
+      const contentToSend = emailContent;
+      await onEmailSend(emailSubject, contentToSend, selectedAttendees, qrAttachments);
       
       // Clear the form after successful sending
       setEmailSubject('');
@@ -152,14 +161,12 @@ export function EmailSection({ selectedAttendees, eventId, onEmailSend }: EmailS
             </div>
           </div>
           <div className="border rounded-md">
-            <ReactQuill
-              theme="snow"
+            <Editor
+              apiKey='9c0hsld025el5g5wjkgdhxjw0avf1ncn0ikzbzf41guw1h9k'
+              onInit={(_: any, editor: any) => (editorRef.current = editor)}
               value={emailContent}
-              onChange={setEmailContent}
-              modules={modules}
-              formats={formats}
-              placeholder="Write your email message here... QR codes will be automatically attached to each email."
-              style={{ minHeight: '200px' }}
+              onEditorChange={(content: string) => setEmailContent(content)}
+              init={tinymceInit}
             />
           </div>
         </div>

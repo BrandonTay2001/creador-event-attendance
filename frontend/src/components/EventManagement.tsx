@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { ActionMenu, ActionMenuTrigger, ActionMenuContent, ActionMenuItem, ActionMenuSeparator } from './ui/action-menu';
-import { ArrowLeft, Plus, Trash2, Edit, Search, Users, Mail, Hash, Settings, Download, Upload, Send, MoreVertical, Loader2, QrCode } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit, Search, Users, Mail, Hash, Download, Upload, Loader2, QrCode } from 'lucide-react';
 import { getEventList, addGuest, removeGuest, updateGuest, updateEvent, Person, Event } from '../lib/eventData';
 import QRCode from 'qrcode';
 import { AddGuestDialog } from './AddGuestDialog';
@@ -14,9 +14,10 @@ import { BulkImportDialog } from './BulkImportDialog';
 import { EmailSection } from './EmailSection';
 import { Checkbox } from './ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { createGraphEmailService } from '../lib/graphService';
+import type { CheckedState } from '@radix-ui/react-checkbox';
 
 interface EventManagementProps {
   eventId: string;
@@ -99,9 +100,10 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     setShowBulkImportDialog(false);
   };
 
-  const handleAttendeeSelection = (attendeeId: string, checked: boolean) => {
+  const handleAttendeeSelection = (attendeeId: string, checked: CheckedState) => {
+    const isChecked = checked === true;
     const newSelected = new Set(selectedAttendees);
-    if (checked) {
+    if (isChecked) {
       newSelected.add(attendeeId);
     } else {
       newSelected.delete(attendeeId);
@@ -109,8 +111,8 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     setSelectedAttendees(newSelected);
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
+  const handleSelectAll = (checked: CheckedState) => {
+    if (checked === true) {
       const allIds = new Set(filteredGuests.map(g => g.id));
       setSelectedAttendees(allIds);
     } else {
@@ -118,7 +120,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     }
   };
 
-  const handleEmailSend = async (subject: string, content: string, recipients: Person[], attachments?: { [email: string]: { name: string; base64: string } }) => {
+  const handleEmailSend = async (subject: string, content: string, recipients: Person[], attachments?: { [email: string]: { name: string; base64: string } }, inlineAttachments?: { name: string; base64: string; contentType?: string; contentId?: string; isInline?: boolean }[]) => {
     if (recipients.length === 0) {
       toast.error('No recipients selected');
       return;
@@ -144,18 +146,28 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
         return;
       }
 
-      // Send individual emails with QR code attachments
-      if (attachments && Object.keys(attachments).length > 0) {
+      // Send individual emails when there are per-recipient attachments or inline (cid) attachments
+      if ((attachments && Object.keys(attachments).length > 0) || (inlineAttachments && inlineAttachments.length > 0)) {
         let successCount = 0;
         let failureCount = 0;
         
         for (const recipient of recipients) {
           try {
-            const recipientAttachment = attachments[recipient.email] 
-              ? [attachments[recipient.email]]
-              : undefined;
-            
-            await graphService.sendEmail([recipient.email], subject, content, recipientAttachment);
+            const recipientAttachment = attachments && attachments[recipient.email]
+              ? [{
+                  name: attachments[recipient.email].name,
+                  base64: attachments[recipient.email].base64,
+                  contentType: 'image/png',
+                  isInline: false
+                }]
+              : [];
+
+            // Combine inline attachments (embedded images referenced via cid) with per-recipient attachments
+            const combinedAttachments = [] as any[];
+            if (recipientAttachment && recipientAttachment.length > 0) combinedAttachments.push(...recipientAttachment);
+            if (inlineAttachments && inlineAttachments.length > 0) combinedAttachments.push(...inlineAttachments);
+
+            await graphService.sendEmail([recipient.email], subject, content, combinedAttachments.length > 0 ? combinedAttachments : undefined);
             successCount++;
           } catch (error) {
             console.error(`Failed to send email to ${recipient.email}:`, error);
@@ -252,11 +264,6 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
     window.URL.revokeObjectURL(url);
     
     toast.success('Attendee list downloaded successfully');
-  };
-
-  const sendInviteEmails = () => {
-    // Mock email sending functionality
-    toast.success(`Invitation emails sent to ${guests.length} attendees`);
   };
 
   if (loading) {
@@ -421,7 +428,7 @@ export function EventManagement({ eventId, onBack }: EventManagementProps) {
                 >
                   <Checkbox
                     checked={selectedAttendees.has(guest.id)}
-                    onCheckedChange={(checked) => handleAttendeeSelection(guest.id, !!checked)}
+                    onCheckedChange={(checked: CheckedState) => handleAttendeeSelection(guest.id, checked)}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">

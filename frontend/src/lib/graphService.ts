@@ -32,6 +32,8 @@ export class GraphEmailService {
       throw new Error('Graph client not initialized. Microsoft access token may be missing.');
     }
 
+    console.log(htmlContent);
+
     // Convert recipients to the format expected by Graph API
     const toRecipients = recipients.map(email => ({
       emailAddress: {
