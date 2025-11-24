@@ -2,6 +2,7 @@
       "name": "Event Management App",
       "version": "0.1.0",
       "private": true,
+      "type": "module",
       "dependencies": {
             "@azure/msal-browser": "^4.24.1",
             "@microsoft/microsoft-graph-client": "^3.0.7",
@@ -43,6 +44,7 @@
             "clsx": "*",
             "cmdk": "^1.1.1",
             "embla-carousel-react": "^8.6.0",
+            "fs-extra": "^11.3.2",
             "input-otp": "^1.4.2",
             "lucide-react": "^0.487.0",
             "next-themes": "^0.4.6",
@@ -56,9 +58,11 @@
             "recharts": "^2.15.2",
             "sonner": "^2.0.3",
             "tailwind-merge": "*",
+            "tinymce": "^8.2.2",
             "vaul": "^1.1.2"
       },
       "devDependencies": {
+            "@types/fs-extra": "^11.0.4",
             "@types/node": "^20.10.0",
             "@types/react": "^18.3.12",
             "@types/react-dom": "^18.3.1",
@@ -68,6 +72,7 @@
       },
       "scripts": {
             "dev": "vite",
-            "build": "vite build"
+            "build": "vite build",
+            "postinstall": "node ./postinstall.js"
       }
 }

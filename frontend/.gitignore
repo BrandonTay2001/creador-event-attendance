@@ -11,3 +11,5 @@ node_modules/
 # setup gitignore for a supabase project
 .env.supabase
 .env.supabase.local
+
+/public/tinymce/
