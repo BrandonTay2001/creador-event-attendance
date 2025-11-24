@@ -162,7 +162,9 @@ export function EmailSection({ selectedAttendees, eventId, onEmailSend }: EmailS
           </div>
           <div className="border rounded-md">
             <Editor
-              apiKey='9c0hsld025el5g5wjkgdhxjw0avf1ncn0ikzbzf41guw1h9k'
+              tinymceScriptSrc='/tinymce/tinymce.min.js'
+              licenseKey='gpl'
+              // apiKey='9c0hsld025el5g5wjkgdhxjw0avf1ncn0ikzbzf41guw1h9k'
               onInit={(_: any, editor: any) => (editorRef.current = editor)}
               value={emailContent}
               onEditorChange={(content: string) => setEmailContent(content)}
