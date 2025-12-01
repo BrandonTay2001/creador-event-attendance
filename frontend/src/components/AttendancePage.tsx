@@ -477,7 +477,11 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
       </Card>
 
       {showScanner && (
-        <QRScanner onScanSuccess={handleInlineQRScanSuccess} />
+        <QRScanner 
+          onScanSuccess={handleInlineQRScanSuccess} 
+          autoStart 
+          minimal 
+        />
       )}
     </div>
   );
