@@ -31,7 +31,7 @@ function AppContent() {
     const handleUserAuth = async () => {
       if (user) {
         // Get user role and set up app user
-        const role = await getUserRole();
+        const role = (await getUserRole()) as UserRole | null;
         const userIsAdmin = isAdmin(role);
         
         setAppUser({

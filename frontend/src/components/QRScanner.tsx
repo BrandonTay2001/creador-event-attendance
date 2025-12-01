@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -7,9 +7,10 @@ import { toast } from 'sonner';
 
 interface QRScannerProps {
   onScanSuccess: (qrData: string) => void;
+  autoStart?: boolean;
 }
 
-export function QRScanner({ onScanSuccess }: QRScannerProps) {
+export function QRScanner({ onScanSuccess, autoStart }: QRScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +23,12 @@ export function QRScanner({ onScanSuccess }: QRScannerProps) {
   const stopScanning = () => {
     setIsScanning(false);
   };
+
+  useEffect(() => {
+    if (autoStart) {
+      startScanning();
+    }
+  }, [autoStart]);
 
   // Manual input removed
 

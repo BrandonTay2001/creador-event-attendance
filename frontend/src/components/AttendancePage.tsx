@@ -20,6 +20,7 @@ import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { ArrowLeft, Users, Check, X, Search, Loader2, QrCode } from 'lucide-react';
+import { QRScanner } from './QRScanner';
 import { getEvent, getEventAttendees, getGroupAttendees, markAttendance, AttendeeWithGroup } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -46,13 +47,14 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isQRMode, setIsQRMode] = useState(false);
-  const [parsedQRData, setParsedQRData] = useState<QRCodeData | null>(null);
+  const [activeQrData, setActiveQrData] = useState<string | undefined>(qrData);
+  const [showScanner, setShowScanner] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     loadEventData();
-  }, [eventId, qrData]);
+  }, [eventId, activeQrData]);
 
   const loadEventData = async () => {
     try {
@@ -63,10 +65,9 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
       let actualGroupId: string | null = null;
       
       // Check if we're in QR mode
-      if (qrData) {
+      if (activeQrData) {
         try {
-          const qrCodeData: QRCodeData = JSON.parse(qrData);
-          setParsedQRData(qrCodeData);
+          const qrCodeData: QRCodeData = JSON.parse(activeQrData);
           setIsQRMode(true);
           
           if (!qrCodeData.group_id || !qrCodeData.event_id) {
@@ -117,6 +118,11 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleInlineQRScanSuccess = (scannedQrData: string) => {
+    setShowScanner(false);
+    setActiveQrData(scannedQrData);
   };
 
   const toggleAttendance = (attendeeId: string) => {
@@ -436,7 +442,7 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
 
       <Card>
         <CardContent className="pt-6">
-          <div className="space-y-2">
+          <div className="space-y-3">
             {hasUnsavedChanges && (
               <p className="text-sm text-muted-foreground text-center">
                 You have unsaved changes
@@ -457,9 +463,22 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
                 hasUnsavedChanges ? 'Save Changes' : 'No Changes to Save'
               )}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowScanner(true)}
+            >
+              <QrCode className="w-4 h-4 mr-2" />
+              Continue Scanning
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {showScanner && (
+        <QRScanner onScanSuccess={handleInlineQRScanSuccess} />
+      )}
     </div>
   );
 }
