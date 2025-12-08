@@ -91,6 +91,8 @@ export function UserManagement({ onBack }: UserManagementProps) {
         return 'bg-red-100 text-red-800 hover:bg-red-200';
       case 'staff':
         return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+      case 'disabled':
+        return 'bg-gray-200 text-gray-600 hover:bg-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
     }
@@ -200,7 +202,11 @@ export function UserManagement({ onBack }: UserManagementProps) {
             </div>
             <div className="flex items-center gap-2">
               <select
-                value={user.role === 'superAdmin' ? 'admin' : (user.role || 'staff')}
+                value={
+                  user.role === 'superAdmin'
+                    ? 'admin'
+                    : (user.role || 'staff')
+                }
                 onChange={(e) => {
                   const newRole = e.target.value as AssignableUserRole;
                   updateUserRole(user.id, newRole);
@@ -212,6 +218,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
               >
                 <option value="admin">Admin</option>
                 <option value="staff">Staff</option>
+                <option value="disabled">Disabled</option>
               </select>
             </div>
           </div>

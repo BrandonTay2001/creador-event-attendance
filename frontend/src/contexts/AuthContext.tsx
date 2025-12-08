@@ -131,14 +131,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   const getUserRole = async (): Promise<string | null> => {
-    if (!user) return null
-    
     try {
+      // Prefer the in-memory user; if not ready yet (e.g., immediately after sign-in), fetch from Supabase.
+      const authUser =
+        user ?? (await supabase.auth.getUser()).data.user ?? null
+
+      if (!authUser) return null
+
       // Query the user_roles table to get the user's role
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.id)
         .maybeSingle()
 
       if (error) {
@@ -150,10 +154,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return data.role
       }
 
-      // If not found, insert a new user role as "user"
+      // If not found, insert a new user role as "staff"
       const { error: insertError } = await supabase
         .from('user_roles')
-        .insert({ user_id: user.id, role: 'staff' })
+        .insert({ user_id: authUser.id, role: 'staff' })
 
       if (insertError) {
         console.error('Error inserting default user role:', insertError)

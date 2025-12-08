@@ -21,7 +21,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
-  const { signIn, signUp, signInWithMicrosoft, getUserRole } = useAuth();
+  const { signIn, signUp, signInWithMicrosoft, getUserRole, signOut } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,8 +75,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         if (user) {
           // Get user role from the database
           const role = await getUserRole();
+
+          // Block disabled accounts
+          if (role === 'disabled') {
+            alert('Your account has been disabled');
+            await signOut();
+            return;
+          }
+
           const userIsAdmin = isAdmin(role);
-          console.log(role);
           
           onLogin({
             username: user.email || 'User',
