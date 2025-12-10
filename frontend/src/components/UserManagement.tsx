@@ -2,8 +2,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { ArrowLeft, RefreshCw, User } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trash2, User } from 'lucide-react';
 import { getUserRole, upsertUserRole, type UserRole, type AssignableUserRole } from '../lib/roles';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import { useAuth } from '../contexts/AuthContext';
 import type { Database } from '../types/database';
 
@@ -22,6 +32,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
   const [users, setUsers] = useState<ProfileWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProfileWithRole | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -50,7 +61,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
         })
       );
 
-      setUsers(usersWithRoles);
+      setUsers(usersWithRoles.filter(user => user.role !== 'deleted'));
     } catch (err) {
       console.error('Error loading users:', err);
       setError(err instanceof Error ? err.message : 'Failed to load users');
@@ -93,8 +104,25 @@ export function UserManagement({ onBack }: UserManagementProps) {
         return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
       case 'disabled':
         return 'bg-gray-200 text-gray-600 hover:bg-gray-300';
+      case 'deleted':
+        return 'bg-gray-200 text-gray-600 hover:bg-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    try {
+      const success = await upsertUserRole(userId, 'deleted');
+      if (!success) {
+        throw new Error('Failed to delete user');
+      }
+
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete user');
     }
   };
 
@@ -220,9 +248,42 @@ export function UserManagement({ onBack }: UserManagementProps) {
                 <option value="staff">Staff</option>
                 <option value="disabled">Disabled</option>
               </select>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeleteTarget(user)}
+                disabled={user.role === 'superAdmin'}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                title="Delete user"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         ))}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open: boolean) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete user</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget
+                  ? `This will mark ${deleteTarget.email || 'this user'} as deleted and remove them from the list.`
+                  : ''}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction asChild>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteTarget && deleteUser(deleteTarget.id)}
+                >
+                  Delete
+                </Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         
         {users.length === 0 && (
           <div className="border rounded-lg p-12 bg-white text-center text-gray-500">

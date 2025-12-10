@@ -1,8 +1,8 @@
 import { supabase } from './supabase'
 
-export type UserRole = 'admin' | 'staff' | 'superAdmin' | 'disabled'
+export type UserRole = 'admin' | 'staff' | 'superAdmin' | 'disabled' | 'deleted'
 
-// Roles that can be assigned to users (excludes superAdmin)
+// Roles that can be assigned to users (excludes superAdmin and deleted)
 export type AssignableUserRole = 'admin' | 'staff' | 'disabled'
 
 export interface UserRoleData {

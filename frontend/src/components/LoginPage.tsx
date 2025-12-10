@@ -77,8 +77,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           const role = await getUserRole();
 
           // Block disabled accounts
-          if (role === 'disabled') {
-            alert('Your account has been disabled');
+          if (role === 'disabled' || role === 'deleted') {
+            alert('Your account has been disabled or deleted');
             await signOut();
             return;
           }
