@@ -5,6 +5,9 @@ export type UserRole = 'admin' | 'staff' | 'superAdmin' | 'disabled' | 'deleted'
 // Roles that can be assigned to users (excludes superAdmin and deleted)
 export type AssignableUserRole = 'admin' | 'staff' | 'disabled'
 
+// Roles that a superAdmin can assign (includes superAdmin)
+export type SuperAdminAssignableUserRole = 'admin' | 'staff' | 'disabled' | 'superAdmin'
+
 export interface UserRoleData {
   id: string
   user_id: string
@@ -23,12 +26,12 @@ export async function getUserRole(userId: string): Promise<UserRole | null> {
       .select('role')
       .eq('user_id', userId)
       .single()
-    
+
     if (error) {
       console.error('Error fetching user role:', error)
       return null
     }
-    
+
     return data?.role as UserRole || null
   } catch (error) {
     console.error('Error in getUserRole:', error)
@@ -50,12 +53,12 @@ export async function upsertUserRole(userId: string, role: UserRole): Promise<bo
       }, {
         onConflict: 'user_id'
       })
-    
+
     if (error) {
       console.error('Error upserting user role:', error)
       return false
     }
-    
+
     return true
   } catch (error) {
     console.error('Error in upsertUserRole:', error)
@@ -86,12 +89,12 @@ export async function getAllUsersWithRoles() {
       .from('user_roles')
       .select('*')
       .order('created_at', { ascending: false })
-    
+
     if (error) {
       console.error('Error fetching users with roles:', error)
       return []
     }
-    
+
     return data || []
   } catch (error) {
     console.error('Error in getAllUsersWithRoles:', error)

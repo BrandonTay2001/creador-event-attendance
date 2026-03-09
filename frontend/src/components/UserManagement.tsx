@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ArrowLeft, RefreshCw, Trash2, User } from 'lucide-react';
-import { getUserRole, upsertUserRole, type UserRole, type AssignableUserRole } from '../lib/roles';
+import { getUserRole, upsertUserRole, isSuperAdmin, type UserRole, type SuperAdminAssignableUserRole } from '../lib/roles';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,9 +25,10 @@ interface ProfileWithRole extends Profile {
 
 interface UserManagementProps {
   onBack: () => void;
+  currentUserRole: UserRole | null;
 }
 
-export function UserManagement({ onBack }: UserManagementProps) {
+export function UserManagement({ onBack, currentUserRole }: UserManagementProps) {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<ProfileWithRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,14 +44,14 @@ export function UserManagement({ onBack }: UserManagementProps) {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*');
-      
+
       if (profilesError) {
         throw new Error(`Failed to fetch profiles: ${profilesError.message}`);
       }
 
       // Filter out the current user and get roles for each remaining user
       const filteredProfiles = (profiles || []).filter(profile => profile.id !== currentUser?.id);
-      
+
       const usersWithRoles = await Promise.all(
         filteredProfiles.map(async (profile) => {
           const role = await getUserRole(profile.id);
@@ -79,8 +80,8 @@ export function UserManagement({ onBack }: UserManagementProps) {
       }
 
       // Update the local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
           user.id === userId ? { ...user, role: newRole } : user
         )
       );
@@ -140,7 +141,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
           </Button>
           <h1 className="text-2xl font-bold">User Management</h1>
         </div>
-        
+
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
@@ -165,7 +166,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
           </Button>
           <h1 className="text-2xl font-bold">User Management</h1>
         </div>
-        
+
         <div className="border border-red-200 rounded-lg p-6 bg-white text-center text-red-600">
           <p className="font-medium mb-2">Error Loading Users</p>
           <p className="text-sm text-red-500 mb-4">{error}</p>
@@ -192,7 +193,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
           </Button>
           <h1 className="text-2xl font-bold">User Management</h1>
         </div>
-        
+
         <Button onClick={loadUsers} variant="outline" size="sm">
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
@@ -201,8 +202,8 @@ export function UserManagement({ onBack }: UserManagementProps) {
 
       <div className="space-y-2">
         {users.map((user) => (
-          <div 
-            key={user.id} 
+          <div
+            key={user.id}
             className="border rounded-lg p-6 bg-white hover:shadow-sm transition-shadow flex items-center justify-between"
           >
             <div className="flex items-center gap-3">
@@ -212,8 +213,8 @@ export function UserManagement({ onBack }: UserManagementProps) {
               <div className="flex items-center gap-4">
                 <div>
                   <div className="font-medium">
-                    {user.first_name && user.last_name 
-                      ? `${user.first_name} ${user.last_name}` 
+                    {user.first_name && user.last_name
+                      ? `${user.first_name} ${user.last_name}`
                       : user.email
                     }
                   </div>
@@ -230,20 +231,18 @@ export function UserManagement({ onBack }: UserManagementProps) {
             </div>
             <div className="flex items-center gap-2">
               <select
-                value={
-                  user.role === 'superAdmin'
-                    ? 'admin'
-                    : (user.role || 'staff')
-                }
+                value={user.role || 'staff'}
                 onChange={(e) => {
-                  const newRole = e.target.value as AssignableUserRole;
+                  const newRole = e.target.value as SuperAdminAssignableUserRole;
                   updateUserRole(user.id, newRole);
                 }}
-                disabled={user.role === 'superAdmin'}
-                className={`px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  user.role === 'superAdmin' ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                disabled={user.role === 'superAdmin' && !isSuperAdmin(currentUserRole)}
+                className={`px-3 py-1 border border-gray-300 rounded-md text-sm bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${user.role === 'superAdmin' && !isSuperAdmin(currentUserRole) ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
               >
+                {isSuperAdmin(currentUserRole) && (
+                  <option value="superAdmin">Super Admin</option>
+                )}
                 <option value="admin">Admin</option>
                 <option value="staff">Staff</option>
                 <option value="disabled">Disabled</option>
@@ -252,7 +251,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
                 variant="ghost"
                 size="icon"
                 onClick={() => setDeleteTarget(user)}
-                disabled={user.role === 'superAdmin'}
+                disabled={user.role === 'superAdmin' && !isSuperAdmin(currentUserRole)}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
                 title="Delete user"
               >
@@ -284,7 +283,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        
+
         {users.length === 0 && (
           <div className="border rounded-lg p-12 bg-white text-center text-gray-500">
             <User className="w-12 h-12 mx-auto mb-4 opacity-50" />

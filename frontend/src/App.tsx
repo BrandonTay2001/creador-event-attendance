@@ -33,7 +33,7 @@ function AppContent() {
         // Get user role and set up app user
         const role = (await getUserRole()) as UserRole | null;
         const userIsAdmin = isAdmin(role);
-        
+
         setAppUser({
           username: user.email || 'User',
           isAdmin: userIsAdmin,
@@ -120,18 +120,18 @@ function AppContent() {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar 
+        <AppSidebar
           user={appUser}
           onAdminClick={handleGoToAdmin}
           onUserManagementClick={handleGoToUserManagement}
           onLogout={handleLogout}
         />
-        
+
         <main className="flex-1 flex flex-col">
           <div className="flex items-center p-4 border-b">
             <SidebarTrigger />
           </div>
-          
+
           <div className="flex-1 p-4">
             <div className="container mx-auto py-8">
               {currentState === 'home' && (
@@ -142,9 +142,9 @@ function AppContent() {
                       Choose an event or scan a QR code to manage attendance
                     </p>
                   </div>
-                  
+
                   <EventSelector onEventSelect={handleEventSelect} />
-                  
+
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
@@ -153,36 +153,37 @@ function AppContent() {
                       <span className="bg-background px-2 text-muted-foreground">Or</span>
                     </div>
                   </div>
-                  
+
                   <QRScanner onScanSuccess={handleQRScanSuccess} />
                 </div>
               )}
 
               {currentState === 'attendance' && (
-                <AttendancePage 
-                  eventId={currentEventId || undefined} 
+                <AttendancePage
+                  eventId={currentEventId || undefined}
                   qrData={qrData || undefined}
                   onBack={handleBackToHome}
                 />
               )}
 
               {currentState === 'admin' && appUser.isAdmin && (
-                <AdminDashboard 
+                <AdminDashboard
                   onBack={handleBackToHome}
                   onEventClick={handleEventManagement}
                 />
               )}
 
               {currentState === 'event-management' && appUser.isAdmin && (
-                <EventManagement 
+                <EventManagement
                   eventId={currentEventId}
                   onBack={handleBackToAdmin}
                 />
               )}
 
               {currentState === 'user-management' && appUser.isAdmin && (
-                <UserManagement 
+                <UserManagement
                   onBack={handleBackToHome}
+                  currentUserRole={appUser.role || null}
                 />
               )}
 
@@ -193,7 +194,7 @@ function AppContent() {
                   <p className="text-muted-foreground mb-4">
                     You don't have permission to access this page.
                   </p>
-                  <button 
+                  <button
                     onClick={handleBackToHome}
                     className="text-primary hover:underline"
                   >
