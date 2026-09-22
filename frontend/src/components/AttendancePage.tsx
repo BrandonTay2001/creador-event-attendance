@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ArrowLeft, Users, Check, X, Search, Loader2, QrCode } from 'lucide-react';
 import { QRScanner } from './QRScanner';
 import { getEvent, getEventAttendees, getGroupAttendees, markAttendance, AttendeeWithGroup } from '../lib/api';
@@ -36,6 +37,8 @@ interface QRCodeData {
   event_id: string;
 }
 
+type AttendanceFilter = 'all' | 'registered' | 'not-registered';
+
 export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps) {
   const [attendees, setAttendees] = useState<AttendeeWithGroup[]>([]);
   const [originalAttendees, setOriginalAttendees] = useState<AttendeeWithGroup[]>([]);
@@ -45,6 +48,7 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [attendanceFilter, setAttendanceFilter] = useState<AttendanceFilter>('all');
   const [error, setError] = useState<string | null>(null);
   const [isQRMode, setIsQRMode] = useState(false);
   const [activeQrData, setActiveQrData] = useState<string | undefined>(qrData);
@@ -240,17 +244,24 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
     }
   };
 
-  // Filter attendees based on search term (only in manual mode)
-  const filteredAttendees = isQRMode ? attendees : attendees.filter(attendee => 
-    attendee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    attendee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (attendee.groups?.name && attendee.groups.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (attendee.groups?.email && attendee.groups.email.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filter attendees by search and registration status (only in manual mode)
+  const filteredAttendees = isQRMode ? attendees : attendees.filter(attendee => {
+    const normalizedSearchTerm = searchTerm.toLowerCase();
+    const matchesSearch =
+      attendee.name.toLowerCase().includes(normalizedSearchTerm) ||
+      attendee.email.toLowerCase().includes(normalizedSearchTerm) ||
+      (attendee.groups?.name && attendee.groups.name.toLowerCase().includes(normalizedSearchTerm)) ||
+      (attendee.groups?.email && attendee.groups.email.toLowerCase().includes(normalizedSearchTerm));
+    const matchesAttendanceFilter =
+      attendanceFilter === 'all' ||
+      (attendanceFilter === 'registered' && attendee.is_attending) ||
+      (attendanceFilter === 'not-registered' && !attendee.is_attending);
+
+    return matchesSearch && matchesAttendanceFilter;
+  });
 
   const presentCount = attendees.filter(attendee => attendee.is_attending).length;
   const totalCount = attendees.length;
-  const filteredPresentCount = filteredAttendees.filter(attendee => attendee.is_attending).length;
 
   if (loading) {
     return (
@@ -356,31 +367,41 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <CardTitle>{isQRMode ? 'Group Attendees' : 'Attendance List'}</CardTitle>
-            {!isQRMode && (
-              <div className="flex-1 max-w-sm">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search participants..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
+          <CardTitle>{isQRMode ? 'Group Attendees' : 'Attendance List'}</CardTitle>
+          {!isQRMode && (
+            <div className="flex gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search participants..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
               </div>
-            )}
-          </div>
-          {searchTerm && !isQRMode && (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">
-                {filteredPresentCount} of {filteredAttendees.length} present (filtered)
-              </Badge>
-              <Badge variant="secondary">
-                {filteredAttendees.length > 0 ? Math.round((filteredPresentCount / filteredAttendees.length) * 100) : 0}% attendance
-              </Badge>
+              <Select
+                value={attendanceFilter}
+                onValueChange={(value) => setAttendanceFilter(value as AttendanceFilter)}
+              >
+                <SelectTrigger
+                  className="w-[140px] shrink-0"
+                  aria-label="Filter attendees by registration status"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="registered">Registered</SelectItem>
+                  <SelectItem value="not-registered">Not registered</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          )}
+          {!isQRMode && attendanceFilter !== 'all' && (
+            <p className="text-sm text-muted-foreground">
+              {filteredAttendees.length}{' '}
+              {attendanceFilter === 'registered' ? 'registered' : 'not registered'}
+            </p>
           )}
         </CardHeader>
         <CardContent className="p-0">
@@ -388,11 +409,13 @@ export function AttendancePage({ eventId, qrData, onBack }: AttendancePageProps)
             <div className="flex flex-col items-center justify-center py-12">
               <Users className="w-12 h-12 text-muted-foreground mb-4" />
               <h3 className="text-lg mb-2">
-                {searchTerm ? 'No matching participants found' : 'No participants yet'}
+                {searchTerm || attendanceFilter !== 'all'
+                  ? 'No matching participants found'
+                  : 'No participants yet'}
               </h3>
               <p className="text-muted-foreground text-center">
-                {searchTerm 
-                  ? 'Try adjusting your search terms'
+                {searchTerm || attendanceFilter !== 'all'
+                  ? 'Try adjusting your search or filter'
                   : 'This event has no registered participants'
                 }
               </p>
